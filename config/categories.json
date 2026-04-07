@@ -1,0 +1,111 @@
+{
+  "coin_categories": {
+    "BTC": {
+      "category": "BTC",
+      "description": "Bitcoin - Dominant cryptocurrency",
+      "coins": ["BTCUSDT"]
+    },
+    "LAYER1": {
+      "category": "LAYER1",
+      "description": "Layer-1 blockchain platforms",
+      "coins": [
+        "ETHUSDT",
+        "SOLUSDT",
+        "ADAUSDT",
+        "AVAXUSDT",
+        "DOTUSDT",
+        "ATOMUSDT",
+        "NEARUSDT",
+        "APTUSDT",
+        "SUIUSDT",
+        "INJUSDT"
+      ]
+    },
+    "LAYER2": {
+      "category": "LAYER2",
+      "description": "Layer-2 scaling solutions",
+      "coins": [
+        "MATICUSDT",
+        "ARBUSDT",
+        "OPUSDT",
+        "IMXUSDT",
+        "LDOUSDT"
+      ]
+    },
+    "DEFI": {
+      "category": "DEFI",
+      "description": "Decentralized Finance tokens",
+      "coins": [
+        "LINKUSDT",
+        "UNIUSDT",
+        "AAVEUSDT",
+        "MKRUSDT",
+        "CRVUSDT",
+        "COMPUSDT",
+        "SUSHIUSDT",
+        "SNXUSDT"
+      ]
+    },
+    "MEME": {
+      "category": "MEME",
+      "description": "Meme coins and community tokens",
+      "coins": [
+        "DOGEUSDT",
+        "SHIBUSDT",
+        "PEPEUSDT",
+        "FLOKIUSDT",
+        "BONKUSDT",
+        "WIFUSDT"
+      ]
+    },
+    "EXCHANGE": {
+      "category": "EXCHANGE",
+      "description": "Exchange tokens",
+      "coins": [
+        "BNBUSDT",
+        "CAKEUSDT"
+      ]
+    },
+    "AI": {
+      "category": "AI",
+      "description": "AI and machine learning tokens",
+      "coins": [
+        "FETUSDT",
+        "RENDERUSDT",
+        "OCEANUSDT",
+        "AGIXUSDT"
+      ]
+    },
+    "GAMING": {
+      "category": "GAMING",
+      "description": "Gaming and metaverse tokens",
+      "coins": [
+        "AXSUSDT",
+        "SANDUSDT",
+        "MANAUSDT",
+        "ENJUSDT",
+        "GALAUSDT"
+      ]
+    },
+    "PRIVACY": {
+      "category": "PRIVACY",
+      "description": "Privacy-focused coins",
+      "coins": [
+        "XMRUSDT",
+        "ZECUSDT"
+      ]
+    },
+    "INFRASTRUCTURE": {
+      "category": "INFRASTRUCTURE",
+      "description": "Infrastructure and storage tokens",
+      "coins": [
+        "FILUSDT",
+        "ARUSDT",
+        "GRTUSDT"
+      ]
+    }
+  },
+  "default_category": "OTHER",
+  "update_frequency_days": 30,
+  "notes": "Categories are used for separate optimization cycles. Top 15 coins by volume will be auto-selected daily from all available coins on Binance Futures. This list serves as a REFERENCE for categorization only, NOT a trading whitelist."
+}

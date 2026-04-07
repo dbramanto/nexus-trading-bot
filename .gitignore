@@ -1,0 +1,29 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+# Logs
+logs/*.log
+*.log
+
+# Environment (SENSITIVE!)
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# System
+.DS_Store
+Thumbs.db
+
+# Backups
+*.backup
+*.bak
+*.tar.gz
+
+# Data (optional - keep sessions for now)
+# data/sessions/*.json

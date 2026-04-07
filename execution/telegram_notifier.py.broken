@@ -1,0 +1,608 @@
+"""
+NEXUS Bot - Telegram Notifier
+Sends trading notifications via Telegram
+"""
+
+import logging
+import os
+from typing import Dict, List, Optional
+from datetime import datetime
+import asyncio
+from telegram import Bot
+from telegram.error import TelegramError
+
+# Setup logging
+logger = logging.getLogger(__name__)
+
+
+class TelegramNotifier:
+    """
+    Telegram notification system for NEXUS bot
+    
+    Features:
+    - Trade alerts (open/close/TP/SL)
+    - Daily reports
+    - Daily loss warnings
+    - Account summaries
+    - Error notifications
+    - File uploads (reports)
+    """
+    
+    def __init__(
+        self,
+        bot_token: str,
+        chat_id: str,
+        enabled: bool = True,
+        mode_prefix: str = "[PAPER]"
+    ):
+        """
+        Initialize Telegram notifier
+        
+        Args:
+            bot_token: Telegram bot token
+            chat_id: Telegram chat ID
+            enabled: Enable/disable notifications
+            mode_prefix: Prefix for messages (e.g., [PAPER] or [LIVE])
+        """
+        self.bot_token = bot_token
+        self.chat_id = chat_id
+        self.enabled = enabled
+        self.mode_prefix = mode_prefix
+        
+        # Initialize bot
+        if self.enabled and self.bot_token and self.chat_id:
+            self.bot = Bot(token=self.bot_token)
+            logger.info(f"TelegramNotifier initialized (enabled, mode={mode_prefix})")
+        else:
+            self.bot = None
+            logger.warning("TelegramNotifier disabled (missing token or chat ID)")
+    
+    async def _send_message(self, message: str) -> bool:
+        """
+        Send message to Telegram
+        
+        Args:
+            message: Message text
+            
+        Returns:
+            bool: Success status
+        """
+        if not self.enabled or not self.bot:
+            logger.debug("Telegram notifications disabled - skipping")
+            return False
+        
+        try:
+            await self.bot.send_message(
+                chat_id=self.chat_id,
+                text=message,
+                parse_mode='Markdown'
+            )
+            logger.debug("Telegram message sent successfully")
+            return True
+            
+        except TelegramError as e:
+            logger.error(f"Telegram error: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Failed to send Telegram message: {e}")
+            return False
+    
+    def send_message(self, message: str):
+        """Send message to Telegram (event-loop safe)"""
+        import asyncio
+        try:
+            # Create new event loop if needed
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_closed():
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # Send message
+            self.bot.send_message(
+                chat_id=self.chat_id,
+                text=message,
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            logger.error(f"Telegram error: {e}")
+    
+    # ═══════════════════════════════════════════════════════
+    # NOTIFICATION TEMPLATES
+    # ═══════════════════════════════════════════════════════
+    
+    def notify_bot_started(self, config: Dict) -> bool:
+        """
+        Notify bot started
+        
+        Args:
+            config: Bot configuration
+            
+        Returns:
+            bool: Success status
+        """
+        message = f"""🤖 *NEXUS BOT STARTED* {self.mode_prefix}
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Mode:* {config.get('mode', 'Paper Trading')}
+*Balance:* ${config.get('balance', 0):,.2f}
+*Symbols:* {', '.join(config.get('symbols', []))}
+
+*Risk Management:*
+- Risk/Trade: {config.get('risk_per_trade', 1)}%
+- Max Position: {config.get('max_position', 25)}%
+- Leverage: {config.get('min_leverage', 10)}-{config.get('max_leverage', 20)}x
+- Daily Limit: -{config.get('daily_limit', 5)}%
+
+⏰ Started: {config.get('start_time', 'N/A')}
+
+✅ Bot monitoring market..."""
+
+        return self.send_message(message)
+    
+    def notify_trade_opened(self, trade: Dict, account: Dict) -> bool:
+        """
+        Notify trade opened
+        
+        Args:
+            trade: Trade details
+            account: Account summary
+            
+        Returns:
+            bool: Success status
+        """
+        direction_emoji = "📈" if trade['direction'] == 'LONG' else "📉"
+        
+        message = f"""🚀 *TRADE OPENED* {self.mode_prefix}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+📊 *POSITION DETAILS*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Symbol:* {trade['symbol']}
+*Direction:* {trade['direction']} {direction_emoji}
+*Entry:* ${trade['entry_price']:,.2f}
+*Size:* ${trade['position_size']:,.2f} ({trade.get('position_percent', 0):.1f}%)
+*Leverage:* {trade['leverage']}x
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 *TARGETS*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*SL:*  ${trade['sl_price']:,.2f} ({trade['sl_percent']:+.2f}%)
+*TP1:* ${trade['tp1_price']:,.2f} ({trade['tp1_percent']:+.2f}%) [50%]
+*TP2:* ${trade['tp2_price']:,.2f} ({trade['tp2_percent']:+.2f}%) [30%]
+*TP3:* ${trade['tp3_price']:,.2f} ({trade['tp3_percent']:+.2f}%) [20%]
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+📈 *ANALYSIS*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Score:* {trade['score']:.1f}/100 ({trade['grade']})
+*Setup:* {trade.get('setup_type', 'N/A')}
+*Reason:* {trade.get('reason', 'N/A')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+💼 *ACCOUNT STATUS*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Balance:* ${account['balance']:,.2f}
+*Today's P&L:* ${account['daily_pnl']:+,.2f} ({account['daily_pnl_percent']:+.2f}%)
+*Open Positions:* {account['open_positions']}
+*Daily Trades:* {account['trades_today']}
+
+⏰ {trade.get('timestamp', 'N/A')}"""
+
+        return self.send_message(message)
+    
+    def notify_tp_hit(self, tp_level: int, trade: Dict, account: Dict) -> bool:
+        """
+        Notify TP hit
+        
+        Args:
+            tp_level: TP level (1, 2, or 3)
+            trade: Trade details
+            account: Account summary
+            
+        Returns:
+            bool: Success status
+        """
+        message = f"""🎯 *TP{tp_level} HIT!* {self.mode_prefix}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+✅ *PARTIAL CLOSE*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Symbol:* {trade['symbol']} {trade['direction']}
+*Entry:* ${trade['entry_price']:,.2f}
+*Exit:* ${trade['exit_price']:,.2f}
+*Closed:* {trade['closed_percent']}% (${trade['closed_size']:,.2f})
+
+⏱ *Duration:* {trade.get('duration', 'N/A')}
+💰 *Profit:* +${trade['profit']:,.2f} ({trade['profit_percent']:+.2f}%)
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+🔒 *RISK MANAGED*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ SL moved to Breakeven
+✅ Trailing stop ACTIVE ({trade.get('trailing_distance', 0.5)}%)
+✅ Remaining: {trade['remaining_percent']}% (${trade['remaining_size']:,.2f})
+
+*Next Targets:*
+{trade.get('next_targets', 'Position fully closed')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+💼 *UPDATED STATUS*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Balance:* ${account['balance']:,.2f}
+*Today's P&L:* ${account['daily_pnl']:+,.2f} ({account['daily_pnl_percent']:+.2f}%)
+*Today's Trades:* {account['trades_today']} ({account['wins_today']}W/{account['losses_today']}L)
+
+⏰ {trade.get('timestamp', 'N/A')}"""
+
+        return self.send_message(message)
+    
+    def notify_position_closed(self, trade: Dict, account: Dict) -> bool:
+        """
+        Notify position fully closed
+        
+        Args:
+            trade: Trade details
+            account: Account summary
+            
+        Returns:
+            bool: Success status
+        """
+        result_emoji = "🏆" if trade['profit'] > 0 else "💔"
+        result_text = "PROFIT" if trade['profit'] > 0 else "LOSS"
+        
+        message = f"""{result_emoji} *POSITION CLOSED* {self.mode_prefix}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+✅ *TRADE SUMMARY*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Symbol:* {trade['symbol']} {trade['direction']}
+*Entry:* ${trade['entry_price']:,.2f}
+*Exit:* ${trade['exit_price']:,.2f}
+*Size:* ${trade['position_size']:,.2f}
+
+⏱ *Duration:* {trade.get('duration', 'N/A')}
+💰 *{result_text}:* ${trade['profit']:+,.2f} ({trade['profit_percent']:+.2f}%)
+
+*Exit Breakdown:*
+{trade.get('exit_breakdown', 'N/A')}
+
+*Reason:* {trade.get('close_reason', 'N/A')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+💼 *ACCOUNT STATUS*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Balance:* ${account['balance']:,.2f}
+*Today's P&L:* ${account['daily_pnl']:+,.2f} ({account['daily_pnl_percent']:+.2f}%)
+*Open Positions:* {account['open_positions']}
+*Today's Trades:* {account['trades_today']} ({account['wins_today']}W/{account['losses_today']}L)
+
+⏰ {trade.get('timestamp', 'N/A')}"""
+
+        return self.send_message(message)
+    
+    def notify_daily_loss_warning(self, account: Dict) -> bool:
+        """
+        Notify approaching daily loss limit
+        
+        Args:
+            account: Account summary
+            
+        Returns:
+            bool: Success status
+        """
+        message = f"""⚠️ *DAILY LOSS WARNING* {self.mode_prefix}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+📉 *APPROACHING LIMIT*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Current Daily Loss:* ${account['daily_pnl']:,.2f} ({account['daily_pnl_percent']:.2f}%)
+*Daily Limit:* -{account['daily_limit']}%
+*Remaining:* ${account['remaining_loss']:,.2f} ({account['remaining_percent']:.1f}%)
+
+⚠️ *Caution:* Close to daily limit!
+Next trade will be monitored closely.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+💼 *CURRENT STATUS*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Balance:* ${account['balance']:,.2f}
+*Today's Trades:* {account['trades_today']} ({account['wins_today']}W/{account['losses_today']}L)
+*Open Positions:* {account['open_positions']}
+
+⏰ {account.get('timestamp', 'N/A')}"""
+
+        return self.send_message(message)
+    
+    def notify_daily_loss_limit_hit(self, account: Dict) -> bool:
+        """
+        Notify daily loss limit hit
+        
+        Args:
+            account: Account summary
+            
+        Returns:
+            bool: Success status
+        """
+        message = f"""🛑 *DAILY LOSS LIMIT HIT!* {self.mode_prefix}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+⛔ *TRADING SUSPENDED*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Daily Loss:* ${account['daily_pnl']:,.2f} ({account['daily_pnl_percent']:.2f}%)
+*Daily Limit:* -{account['daily_limit']}%
+*Status:* STOPPED ⛔
+
+*Trading will resume at:*
+🕐 {account['next_reset']}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+📊 *TODAY'S SUMMARY*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Starting Balance:* ${account['start_balance']:,.2f}
+*Current Balance:* ${account['balance']:,.2f}
+*Net P&L:* ${account['daily_pnl']:,.2f} ({account['daily_pnl_percent']:.2f}%)
+
+*Trades:* {account['trades_today']}
+*Wins:* {account['wins_today']} ({account.get('win_rate', 0):.1f}%)
+*Losses:* {account['losses_today']} ({account.get('loss_rate', 0):.1f}%)
+
+*Largest Loss:* ${account.get('largest_loss', 0):,.2f}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+💡 *ANALYSIS*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Market:* {account.get('market_condition', 'Volatile/Choppy')}
+*Recommendation:* Rest & reset
+
+See you tomorrow! 💪"""
+
+        return self.send_message(message)
+    
+    def notify_daily_reset(self, yesterday: Dict, today: Dict) -> bool:
+        """
+        Notify daily reset and report
+        
+        Args:
+            yesterday: Yesterday's performance
+            today: Today's starting state
+            
+        Returns:
+            bool: Success status
+        """
+        message = f"""🌅 *DAILY RESET - NEW DAY* {self.mode_prefix}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+📊 *YESTERDAY'S PERFORMANCE*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Date:* {yesterday['date']}
+
+*Starting:* ${yesterday['start_balance']:,.2f}
+*Ending:* ${yesterday['end_balance']:,.2f}
+*Net P&L:* ${yesterday['pnl']:+,.2f} ({yesterday['pnl_percent']:+.2f}%) {'✅' if yesterday['pnl'] > 0 else '❌'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+📈 *TRADING STATS*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Total Trades:* {yesterday['trades']} ({yesterday['wins']}W/{yesterday['losses']}L)
+*Win Rate:* {yesterday['win_rate']:.1f}%
+
+*Avg Win:* +${yesterday.get('avg_win', 0):,.2f}
+*Avg Loss:* -${yesterday.get('avg_loss', 0):,.2f}
+*Profit Factor:* {yesterday.get('profit_factor', 0):.2f}
+
+*Best Trade:* +${yesterday.get('best_trade', 0):,.2f} ({yesterday.get('best_symbol', 'N/A')})
+*Worst Trade:* ${yesterday.get('worst_trade', 0):,.2f} ({yesterday.get('worst_symbol', 'N/A')})
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+📅 *CUMULATIVE STATS*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*All-Time P&L:* ${today.get('cumulative_pnl', 0):+,.2f}
+*All-Time ROI:* {today.get('cumulative_roi', 0):+.2f}%
+*Total Trades:* {today.get('total_trades', 0)}
+*Overall Win Rate:* {today.get('overall_win_rate', 0):.1f}%
+*Days Traded:* {today.get('days_traded', 0)}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+🆕 *NEW DAY STARTED*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Date:* {today['date']}
+
+*Balance:* ${today['balance']:,.2f}
+*Daily Limit:* ${today['daily_limit']:,.2f} ({today['daily_limit_percent']}%)
+*Daily Counter:* RESET ✅
+
+*Status:* ACTIVE & MONITORING 🟢
+
+Let's make it a great day! 💪"""
+
+        return self.send_message(message)
+    
+    def notify_no_signal(self, scan_results: Dict, account: Dict) -> bool:
+        """
+        Notify no signal found
+        
+        Args:
+            scan_results: Scan results
+            account: Account summary
+            
+        Returns:
+            bool: Success status
+        """
+        message = f"""⏭️ *NO SIGNAL - WAITING* {self.mode_prefix}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+🔍 *SCAN RESULTS*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Top Scores:*
+{scan_results.get('top_scores', 'No scores available')}
+
+*Threshold:* {scan_results.get('threshold', 55)}
+*Status:* All below threshold ⏸️
+
+*Market:* {scan_results.get('market_condition', 'Choppy/Trending')}
+*Quality:* {scan_results.get('setup_quality', 'Low')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+💼 *ACCOUNT STATUS*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Balance:* ${account['balance']:,.2f}
+*Today's P&L:* ${account['daily_pnl']:+,.2f} ({account['daily_pnl_percent']:+.2f}%)
+*Open Positions:* {account['open_positions']}
+
+Waiting for quality setup...
+
+⏰ {scan_results.get('timestamp', 'N/A')}
+
+✅ Patience = Profit! 🎯"""
+
+        return self.send_message(message)
+    
+    def notify_error(self, error: Dict) -> bool:
+        """
+        Notify error
+        
+        Args:
+            error: Error details
+            
+        Returns:
+            bool: Success status
+        """
+        message = f"""⚠️ *ERROR ALERT!* {self.mode_prefix}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+🔴 *SYSTEM ERROR*
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Type:* {error.get('type', 'Unknown')}
+*Component:* {error.get('component', 'Unknown')}
+*Message:* {error.get('message', 'N/A')}
+
+*Impact:* {error.get('impact', 'Unknown')}
+*Action:* {error.get('action', 'Automatic retry')}
+
+⏰ {error.get('timestamp', 'N/A')}
+
+System will notify when resolved."""
+
+        return self.send_message(message)
+
+
+# Convenience function
+# Convenience function
+def get_telegram_notifier(
+    bot_token: Optional[str] = None,
+    chat_id: Optional[str] = None,
+    enabled: bool = True,
+    mode_prefix: str = "[PAPER]"
+) -> TelegramNotifier:
+    """
+    Factory function to create TelegramNotifier
+    
+    Args:
+        bot_token: Bot token (or from env)
+        chat_id: Chat ID (or from env)
+        enabled: Enable notifications
+        mode_prefix: Mode prefix
+        
+    Returns:
+        TelegramNotifier instance
+    """
+    # Get from env if not provided
+    if not bot_token:
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+    if not chat_id:
+        chat_id = os.getenv('TELEGRAM_CHAT_ID')
+    
+    # Check enabled flag
+    enabled_str = os.getenv('TELEGRAM_ENABLED', 'true').lower()
+    if enabled_str in ['false', '0', 'no']:
+        enabled = False
+    
+    return TelegramNotifier(bot_token, chat_id, enabled, mode_prefix)
+
+
+if __name__ == "__main__":
+    """Test Telegram notifier"""
+    
+    from dotenv import load_dotenv
+    
+    # Setup logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    print("=" * 70)
+    print("Testing Telegram Notifier")
+    print("=" * 70)
+    
+    # Load credentials
+    load_dotenv()
+    
+    # Initialize
+    print("\n[1] Initializing Telegram notifier...")
+    notifier = get_telegram_notifier(mode_prefix="[PAPER]")
+    
+    if not notifier.bot:
+        print("❌ Telegram bot not configured!")
+        print("   Please check .env file for:")
+        print("   - TELEGRAM_BOT_TOKEN")
+        print("   - TELEGRAM_CHAT_ID")
+        print("   - TELEGRAM_ENABLED=true")
+        exit(1)
+    
+    print("✅ Telegram notifier initialized")
+    
+    # Test bot started notification
+    print("\n[2] Sending bot started notification...")
+    config = {
+        'mode': 'Paper Trading',
+        'balance': 1000.0,
+        'symbols': ['BTC', 'ETH', 'BNB'],
+        'risk_per_trade': 1,
+        'max_position': 25,
+        'min_leverage': 10,
+        'max_leverage': 20,
+        'daily_limit': 5,
+        'start_time': '2026-04-03 16:30 UTC (23:30 WIB)'
+    }
+    
+    success = notifier.notify_bot_started(config)
+    
+    if success:
+        print("✅ Bot started notification sent!")
+        print("   Check your Telegram for the message!")
+    else:
+        print("❌ Failed to send notification")
+        print("   Check your bot token and chat ID")
+    
+    print("\n" + "=" * 70)
+    print("✅ Telegram notifier test complete!")
+    print("=" * 70)
+    print("\nIf you received the message, your Telegram bot is working!")
+    print("All notification templates are ready to use.")
+    print("=" * 70)
