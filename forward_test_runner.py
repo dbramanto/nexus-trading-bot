@@ -20,6 +20,7 @@ from execution.trade_execution_manager import get_trade_execution_manager
 from execution.daily_session_manager import get_daily_session_manager
 from execution.telegram_notifier import get_telegram_notifier
 from core.report_generator import ReportGenerator
+from core.market_analyzer import MarketAnalyzer
 
 
 from core.indicator_manager import get_indicator_manager
@@ -76,6 +77,8 @@ class ForwardTestRunner:
         self.scans_since_heartbeat = 0
         self.best_score_since_heartbeat = 0.0
         self.best_symbol_since_heartbeat = ""
+        self.best_direction_since_heartbeat = ""
+        self.scan_results_since_heartbeat = []
         logger.info("=" * 70)
         logger.info("NEXUS BOT - FORWARD TEST RUNNER")
         logger.info("=" * 70)
@@ -111,20 +114,24 @@ class ForwardTestRunner:
         self.telegram = get_telegram_notifier(mode_prefix="[PAPER]")
                 
         # Initialize report generator
-        logger.info("[5/12] Initializing report generator...")
+        logger.info("[5/13] Initializing report generator...")
         self.report_generator = ReportGenerator()
+        
+        # Initialize market analyzer
+        logger.info("[6/13] Initializing market analyzer...")
+        self.market_analyzer = MarketAnalyzer()
 
 
-        logger.info("[6/12] Initializing indicator manager...")
+        logger.info("[7/13] Initializing indicator manager...")
         self.indicator_manager = get_indicator_manager(self.client)
         
-        logger.info("[7/12] Initializing scoring engine...")
+        logger.info("[8/13] Initializing scoring engine...")
         self.scoring_engine = get_scoring_engine()
         
-        logger.info("[8/12] Initializing signal generator...")
+        logger.info("[9/13] Initializing signal generator...")
         self.signal_generator = get_signal_generator()
         
-        logger.info("[9/12] Initializing position calculator...")
+        logger.info("[10/13] Initializing position calculator...")
         self.position_calculator = get_position_calculator(
             risk_per_trade=1.0,
             min_leverage=10.0,
@@ -132,20 +139,20 @@ class ForwardTestRunner:
             max_position_percent=25.0
         )
         
-        logger.info("[10/12] Initializing trade validator...")
+        logger.info("[11/13] Initializing trade validator...")
         self.trade_validator = get_trade_validator(
             session_manager=self.session_manager,
             min_signal_grade='WEAK'
         )
         
-        logger.info("[11/12] Initializing universe scanner...")
+        logger.info("[12/13] Initializing universe scanner...")
         self.universe_scanner = get_universe_scanner(
             self.client,
             self.indicator_manager,
             self.scoring_engine
         )
         
-        logger.info("[12/12] Initializing trade execution manager...")
+        logger.info("[13/13] Initializing trade execution manager...")
         self.execution_manager = get_trade_execution_manager(
             self.client,
             self.paper_engine,
@@ -413,9 +420,8 @@ class ForwardTestRunner:
                         self.best_score_since_heartbeat = result['best_score']
                         self.best_symbol_since_heartbeat = result.get('best_symbol', '')
                 
-                # Send heartbeat every 4 hours
-                time_since_heartbeat = (datetime.now(timezone.utc) - self.last_heartbeat).total_seconds()
-                if time_since_heartbeat >= self.heartbeat_interval:
+                # Send heartbeat at 4H candle close (00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC)
+                if self._should_send_heartbeat():
                     self._send_heartbeat()
                 
                 # Check if it's time to send reports
@@ -448,30 +454,84 @@ class ForwardTestRunner:
             logger.error(f"Fatal error: {e}", exc_info=True)
             self._show_final_summary()
 
+    
+    def _should_send_heartbeat(self) -> bool:
+        """Check if it's time to send heartbeat (aligned with 4H candle close)"""
+        now_utc = datetime.now(timezone.utc)
+        current_hour = now_utc.hour
+        current_minute = now_utc.minute
+        
+        # 4H candle closes at: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
+        candle_close_hours = [0, 4, 8, 12, 16, 20]
+        
+        # Check if current hour is a candle close hour
+        if current_hour not in candle_close_hours:
+            return False
+        
+        # Check if we're within the first 5 minutes of the hour
+        if current_minute >= 5:
+            return False
+        
+        # Check if we already sent heartbeat this hour
+        last_heartbeat_hour = self.last_heartbeat.hour
+        if current_hour == last_heartbeat_hour:
+            return False
+        
+        return True
+
     def _send_heartbeat(self):
-        """Send periodic heartbeat notification"""
+        """Send periodic heartbeat notification with market analysis"""
         try:
-            message = (
-                f"✅ **Watching market...**\n\n"
-                f"Scans: {self.scans_since_heartbeat}\n"
-                f"Best score: {self.best_symbol_since_heartbeat} {self.best_score_since_heartbeat:.1f}\n"
-                f"Status: {'Signal found!' if self.best_score_since_heartbeat >= 55 else 'Waiting for ≥55'}\n\n"
-                f"Account: ${self.paper_engine.get_account_state()['balance']:,.2f}\n"
-                f"Positions: {self.paper_engine.get_account_state()['open_positions']}"
+            now_utc = datetime.now(timezone.utc)
+            wib_hour = (now_utc.hour + 7) % 24
+            
+            # Analyze market condition
+            market_analysis = self.market_analyzer.analyze_market_condition(
+                self.scan_results_since_heartbeat
             )
             
+            # Format gap to threshold
+            gap = self.best_score_since_heartbeat - 55
+            gap_text = f"{gap:+.1f}" if self.best_score_since_heartbeat > 0 else "N/A"
+            
+            # Build enhanced message
+            message = f"""━━━━━━━━━━━━━━━━━━━━━━━━
+✅ MARKET WATCH
+Candle: 4H Close ({wib_hour:02d}:00 WIB)
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 SCANNING
+{self.scans_since_heartbeat} scans | 15 coins | 15m TF
+
+🎯 BEST: {self.best_symbol_since_heartbeat} {self.best_direction_since_heartbeat}
+Score: {self.best_score_since_heartbeat:.1f}/55 ({self.best_score_since_heartbeat/55*100:.0f}%) | Gap: {gap_text}
+
+📈 MARKET: {market_analysis['trend']}
+Trend: {market_analysis['trend']} | Vol: {market_analysis['volatility']}
+Avg score: {market_analysis['avg_score']:.1f} | {market_analysis['confluence']} setup
+
+💰 ACCOUNT
+${self.paper_engine.get_account_state()['balance']:,.2f} | {self.paper_engine.get_account_state()['open_positions']} pos | +$0 today
+
+💡 INSIGHT
+{market_analysis['insight']}
+
+⏰ Next: {((wib_hour + 4) % 24):02d}:00 WIB
+━━━━━━━━━━━━━━━━━━━━━━━━"""
+            
             self.telegram.send_message(message)
-            logger.info("Heartbeat sent")
+            logger.info(f"Heartbeat sent (4H close at {wib_hour:02d}:00 WIB)")
             
             # Reset counters
             self.scans_since_heartbeat = 0
             self.best_score_since_heartbeat = 0.0
             self.best_symbol_since_heartbeat = ""
-            self.last_heartbeat = datetime.now(timezone.utc)
+            self.best_direction_since_heartbeat = ""
+            self.scan_results_since_heartbeat = []
+            self.last_heartbeat = now_utc
             
         except Exception as e:
             logger.error(f"Error sending heartbeat: {e}")
-            
     def _check_and_send_reports(self):
         """Check if it's time to send reports and send them"""
         try:
