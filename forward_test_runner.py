@@ -415,10 +415,15 @@ class ForwardTestRunner:
 
                 # Heartbeat tracking
                 self.scans_since_heartbeat += 1
+                
+                # Track scan results for market analysis
                 if result.get('best_score'):
+                    self.scan_results_since_heartbeat.append(result)
+                    
                     if result['best_score'] > self.best_score_since_heartbeat:
                         self.best_score_since_heartbeat = result['best_score']
                         self.best_symbol_since_heartbeat = result.get('best_symbol', '')
+                        self.best_direction_since_heartbeat = result.get('best_direction', '')
                 
                 # Send heartbeat at 4H candle close (00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC)
                 if self._should_send_heartbeat():
