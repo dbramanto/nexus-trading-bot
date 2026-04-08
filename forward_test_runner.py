@@ -241,6 +241,16 @@ class ForwardTestRunner:
             # Get opportunities list safely
             opportunities = scan_results.get('opportunities', []) if isinstance(scan_results, dict) else []
             
+            # Extract scan summary for heartbeat tracking (ALWAYS, even if no opportunities)
+            if isinstance(scan_results, dict) and 'opportunities' in scan_results:
+                all_opps = scan_results['opportunities']
+                if all_opps:
+                    best_opp = max(all_opps, key=lambda x: x.get('score', 0))
+                    cycle_result['best_score'] = best_opp.get('score', 0)
+                    cycle_result['best_symbol'] = best_opp.get('symbol', '')
+                    cycle_result['best_direction'] = best_opp.get('direction', '')
+                    cycle_result['all_scores'] = [opp.get('score', 0) for opp in all_opps]
+            
             if not opportunities:
                 logger.info("No opportunities found")
                 cycle_result['action'] = 'NO_SIGNAL'
