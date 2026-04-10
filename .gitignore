@@ -27,3 +27,19 @@ Thumbs.db
 
 # Data (optional - keep sessions for now)
 # data/sessions/*.json
+
+# Backup files
+*.backup
+*.backup_*
+*_backup_*
+*.backup2
+
+# Data files
+data/sessions/*.json
+data/reports/*.json
+
+# Patch files
+patch_*.py
+
+# Test files
+test_*.py

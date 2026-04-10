@@ -2,7 +2,7 @@
 NEXUS Bot - Forward Test Runner
 Complete automated trading system with Telegram notifications
 """
-
+from datetime import datetime, timezone, timedelta
 import os
 import sys
 import time
@@ -73,12 +73,23 @@ class ForwardTestRunner:
         self.symbols = symbols
         # Heartbeat tracking
         self.last_heartbeat = datetime.now(timezone.utc)
-        self.heartbeat_interval = 4 * 3600  # 4 hours
+        self.heartbeat_interval = 14400    # 4 hours in seconds
         self.scans_since_heartbeat = 0
         self.best_score_since_heartbeat = 0.0
         self.best_symbol_since_heartbeat = ""
         self.best_direction_since_heartbeat = ""
         self.scan_results_since_heartbeat = []
+
+        # Enhanced signal tracking
+        self.signals_today = []  # All signals found today
+        self.near_misses_today = []  # Signals 50-54.9
+        self.best_score_today = 0.0
+        self.best_symbol_today = ""
+        self.best_direction_today = ""
+        self.last_signal_time = None
+        self.last_signal_symbol = ""
+        self.last_signal_score = 0.0
+        self.last_signal_direction = ""
         logger.info("=" * 70)
         logger.info("NEXUS BOT - FORWARD TEST RUNNER")
         logger.info("=" * 70)
@@ -210,6 +221,18 @@ class ForwardTestRunner:
             if self.session_manager.check_daily_reset():
                 logger.info("Daily reset occurred - new session started")
                 self._send_daily_reset_notification()
+                
+                # Reset daily tracking variables
+                self.signals_today = []
+                self.near_misses_today = []
+                self.best_score_today = 0.0
+                self.best_symbol_today = ""
+                self.best_direction_today = ""
+                self.last_signal_time = None
+                self.last_signal_symbol = ""
+                self.last_signal_score = 0.0
+                self.last_signal_direction = ""
+                logger.info("Daily tracking variables reset")
             
             # Check if can trade (daily loss limit)
             can_trade, reason = self.session_manager.can_trade()
@@ -254,6 +277,24 @@ class ForwardTestRunner:
                 cycle_result['best_symbol'] = best_opp.get('symbol', '')
                 cycle_result['best_direction'] = best_opp.get('direction', '')
                 cycle_result['all_scores'] = [opp.get('score', 0) for opp in all_scan_results]
+
+                # Track best score of the day
+                if cycle_result["best_score"] > self.best_score_today:
+                    self.best_score_today = cycle_result["best_score"]
+                    self.best_symbol_today = cycle_result["best_symbol"]
+                    self.best_direction_today = cycle_result["best_direction"]
+                
+                # Track near-misses (50-54.9)
+                for opp in all_scan_results:
+                    score = opp.get("score", 0)
+                    if 50 <= score < 55:
+                        near_miss = {
+                            "time": datetime.now(timezone.utc),
+                            "symbol": opp.get("symbol", ""),
+                            "score": score,
+                            "direction": opp.get("direction", "")
+                        }
+                        self.near_misses_today.append(near_miss)
             
             if not opportunities:
                 logger.info("No opportunities found")
@@ -270,6 +311,20 @@ class ForwardTestRunner:
             logger.info(f"Best opportunity: {best['symbol']} (score: {best['score']:.1f})")
             cycle_result['best_score'] = best['score']
             cycle_result['best_symbol'] = best['symbol']
+
+            # Track this signal >=55
+            signal = {
+                "time": datetime.now(timezone.utc),
+                "symbol": best["symbol"],
+                "score": best["score"],
+                "direction": best.get("direction", ""),
+                "grade": best.get("grade", "")
+            }
+            self.signals_today.append(signal)
+            self.last_signal_time = signal["time"]
+            self.last_signal_symbol = signal["symbol"]
+            self.last_signal_score = signal["score"]
+            self.last_signal_direction = signal["direction"]
             
             # Execute trade for best symbol
             result = self.execution_manager.execute_trading_cycle(
@@ -369,8 +424,14 @@ class ForwardTestRunner:
         self.telegram.notify_trade_opened(trade_info, account_info)
     
     def _send_daily_reset_notification(self):
-        """Send daily reset notification"""
+        """Send daily reset notification with yesterday's insights"""
         sessions = self.session_manager.get_recent_sessions(count=1)
+        
+        # Save yesterday's tracking data before reset
+        yesterday_best_score = self.best_score_today
+        yesterday_best_symbol = self.best_symbol_today
+        yesterday_signals = len(self.signals_today)
+        yesterday_near_misses = len(self.near_misses_today)
         
         if sessions:
             yesterday = sessions[0]
@@ -386,6 +447,12 @@ class ForwardTestRunner:
                 'losses': 0,
                 'win_rate': 0
             }
+        
+        # Add yesterday's tracking data
+        yesterday['best_score'] = yesterday_best_score
+        yesterday['best_symbol'] = yesterday_best_symbol
+        yesterday['signals_count'] = yesterday_signals
+        yesterday['near_misses_count'] = yesterday_near_misses
         
         session_summary = self.session_manager.get_session_summary()
         
@@ -423,6 +490,9 @@ class ForwardTestRunner:
             while True:
                 cycle_count += 1
                 logger.info(f"\nCycle #{cycle_count}")
+                
+                # Check if heartbeat needed (every 4 hours)
+#                 self._check_and_send_heartbeat()
                 
                 # Run cycle
                 result = self.run_single_cycle()
@@ -509,9 +579,49 @@ class ForwardTestRunner:
                 self.scan_results_since_heartbeat
             )
             
+            # Build top 5 leaderboard from recent scans
+            top_5_text = ""
+            if self.scan_results_since_heartbeat:
+                # Get unique symbols and their best scores
+                symbol_scores = {}
+                for result in self.scan_results_since_heartbeat:
+                    symbol = result.get('best_symbol', '')
+                    score = result.get('best_score', 0)
+                    direction = result.get('best_direction', '')
+                    if symbol and score > symbol_scores.get(symbol, {}).get('score', 0):
+                        symbol_scores[symbol] = {'score': score, 'direction': direction}
+                
+                # Sort by score and get top 5
+                sorted_symbols = sorted(symbol_scores.items(), key=lambda x: x[1]['score'], reverse=True)[:5]
+                
+                medals = ["[1]", "[2]", "[3]", "[4]", "[5]"]
+                for i, (symbol, data) in enumerate(sorted_symbols):
+                    symbol_clean = symbol.replace('USDT', '')
+                    top_5_text += f"{medals[i]} {symbol_clean}: {data['score']:.1f} {data['direction']}\n"
+                
+                # Count LONG/SHORT bias
+                long_count = sum(1 for _, data in sorted_symbols if data['direction'] == 'LONG')
+                short_count = sum(1 for _, data in sorted_symbols if data['direction'] == 'SHORT')
+                bias_text = f"Bias: {long_count}L/{short_count}S"
+                top_5_text += bias_text
+            
             # Format gap to threshold
             gap = self.best_score_since_heartbeat - 55
             gap_text = f"{gap:+.1f}" if self.best_score_since_heartbeat > 0 else "N/A"
+            
+            # Signal history
+            signals_count = len(self.signals_today)
+            near_misses_count = len(self.near_misses_today)
+            
+            # Last signal info
+            last_signal_text = "None"
+            if self.last_signal_time:
+                wib_time = self.last_signal_time + timedelta(hours=7)
+                last_signal_text = f"{wib_time.strftime('%H:%M')} WIB ({self.last_signal_symbol} {self.last_signal_score:.1f})"
+            
+            # Account info with today's P&L
+            account = self.paper_engine.get_account_state()
+            session_pnl = self.session_manager.get_session_summary().get('daily_pnl', 0)
             
             # Build enhanced message
             message = f"""━━━━━━━━━━━━━━━━━━━━━━━━
@@ -522,6 +632,9 @@ Candle: 4H Close ({wib_hour:02d}:00 WIB)
 📊 SCANNING
 {self.scans_since_heartbeat} scans | 15 coins | 15m TF
 
+🏆 TOP 5 SCORES
+{top_5_text if top_5_text else "No data yet"}
+
 🎯 BEST: {self.best_symbol_since_heartbeat} {self.best_direction_since_heartbeat}
 Score: {self.best_score_since_heartbeat:.1f}/55 ({self.best_score_since_heartbeat/55*100:.0f}%) | Gap: {gap_text}
 
@@ -529,8 +642,15 @@ Score: {self.best_score_since_heartbeat:.1f}/55 ({self.best_score_since_heartbea
 Trend: {market_analysis['trend']} | Vol: {market_analysis['volatility']}
 Avg score: {market_analysis['avg_score']:.1f} | {market_analysis['confluence']} setup
 
+🔔 SIGNALS TODAY
+Total: {signals_count} qualified
+Near-miss: {near_misses_count} (50-54.9)
+Last: {last_signal_text}
+
 💰 ACCOUNT
-${self.paper_engine.get_account_state()['balance']:,.2f} | {self.paper_engine.get_account_state()['open_positions']} pos | +$0 today
+Balance: ${account['balance']:,.2f}
+Today P&L: ${session_pnl:+,.2f}
+Positions: {account['open_positions']}
 
 💡 INSIGHT
 {market_analysis['insight']}
@@ -591,6 +711,39 @@ ${self.paper_engine.get_account_state()['balance']:,.2f} | {self.paper_engine.ge
             logger.error(f"Error checking/sending reports: {e}")
 
 
+    def _check_and_send_heartbeat(self):
+        """Check if heartbeat notification needed and send if yes"""
+        now_utc = datetime.now(timezone.utc)
+        time_since_last = (now_utc - self.last_heartbeat).total_seconds()
+        
+        # Send heartbeat every 4 hours
+        if time_since_last >= self.heartbeat_interval:
+            logger.info("Sending 4-hour heartbeat notification...")
+            
+            # Get current stats
+            account = self.paper_engine.get_account_state()
+            session = self.session_manager.get_session_summary()
+            
+            heartbeat_info = {
+                'balance': account['balance'],
+                'daily_pnl': session['daily_pnl'],
+                'daily_pnl_percent': session['daily_pnl_percent'],
+                'open_positions': account['open_positions'],
+                'trades_today': session['trades_today'],
+                'next_reset_utc': session['next_reset'],
+                'hours_since_last': int(time_since_last / 3600),
+                'status': 'Active'  # Always active in paper mode
+            }
+            
+            # Send notification
+            success = self.telegram.notify_heartbeat(heartbeat_info)
+            
+            if success:
+                logger.info("✅ Heartbeat sent successfully")
+                self.last_heartbeat = now_utc
+            else:
+                logger.warning("⚠️ Heartbeat failed to send")
+    
     def _show_final_summary(self):
         """Show final performance summary"""
         logger.info("\n" + "=" * 70)

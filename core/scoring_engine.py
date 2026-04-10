@@ -81,19 +81,28 @@ class ScoringEngine:
                 'consolidation_quality': 15,
                 'volume_spike': 15,
                 'liquidity': 10,
-                'range_duration': 10
+                'range_duration': 10,
+                'funding_rate': 5,
             },
             'tier_1': {
                 'fvg_present': 8,
                 'htf_alignment': 7,
                 'premium_discount': 7,
                 'order_block': 7,
+                'ichimoku': 8,
+                'vwap': 4,
+                'volume_profile': 6,
+                'stochastic_rsi': 5,
+                'macd': 5,
+                'bollinger_bands': 4,
+                'htf_structure': 7,
                 'momentum': 6
             },
             'tier_2': {
                 'candlestick_pattern': 5,
                 'ma_alignment': 5,
-                'fibonacci': 5
+                'fibonacci': 5,
+                'liquidity_sweeps': 8,
             }
         }
         self.thresholds = {
@@ -187,6 +196,15 @@ class ScoringEngine:
         else:
             # Weak volume
             scores['volume_spike'] = 0
+
+        # 3. Funding Rate (NEXUS Elite)
+        funding = analysis.get('funding_rate', {})
+        if funding and funding.get('signal'):
+            funding_strength = abs(funding['signal'].get('strength', 0))
+            max_weight = weights.get('funding_rate', 5)
+            scores['funding_rate'] = (funding_strength / 3) * max_weight
+        else:
+            scores['funding_rate'] = 0
         
         # 3. Liquidity (FVG + OB presence)
         fvgs = analysis.get('fvgs', [])
@@ -266,6 +284,70 @@ class ScoringEngine:
                 scores['htf_alignment'] = 0
         else:
             scores['htf_alignment'] = 0
+
+        # NEXUS ELITE TIER 1 INDICATORS
+        # 3. Ichimoku Cloud
+        ichimoku = analysis.get('ichimoku', {})
+        if ichimoku and ichimoku.get('signal'):
+            ich_strength = abs(ichimoku['signal'].get('strength', 0))
+            max_weight = weights.get('ichimoku', 8)
+            scores['ichimoku'] = (ich_strength / 3) * max_weight
+        else:
+            scores['ichimoku'] = 0
+
+        # 4. VWAP
+        vwap = analysis.get('vwap', {})
+        if vwap and vwap.get('signal'):
+            vwap_strength = abs(vwap['signal'].get('strength', 0))
+            max_weight = weights.get('vwap', 4)
+            scores['vwap'] = (vwap_strength / 4) * max_weight
+        else:
+            scores['vwap'] = 0
+
+        # 5. Volume Profile
+        vol_profile = analysis.get('volume_profile', {})
+        if vol_profile and vol_profile.get('signal'):
+            vp_strength = abs(vol_profile['signal'].get('strength', 0))
+            max_weight = weights.get('volume_profile', 6)
+            scores['volume_profile'] = (vp_strength / 6) * max_weight
+        else:
+            scores['volume_profile'] = 0
+
+        # 6. Stochastic RSI
+        stoch_rsi = analysis.get('stoch_rsi', {})
+        if stoch_rsi and stoch_rsi.get('signal'):
+            stoch_strength = abs(stoch_rsi['signal'].get('strength', 0))
+            max_weight = weights.get('stochastic_rsi', 5)
+            scores['stochastic_rsi'] = (stoch_strength / 5) * max_weight
+        else:
+            scores['stochastic_rsi'] = 0
+
+        # 7. MACD
+        macd = analysis.get('macd', {})
+        if macd and macd.get('signal'):
+            macd_strength = abs(macd['signal'].get('strength', 0))
+            max_weight = weights.get('macd', 5)
+            scores['macd'] = (macd_strength / 5) * max_weight
+        else:
+            scores['macd'] = 0
+
+        # 8. Bollinger Bands
+        bollinger = analysis.get('bollinger', {})
+        if bollinger and bollinger.get('signal'):
+            bb_strength = abs(bollinger['signal'].get('strength', 0))
+            max_weight = weights.get('bollinger_bands', 4)
+            scores['bollinger_bands'] = (bb_strength / 4) * max_weight
+        else:
+            scores['bollinger_bands'] = 0
+
+        # 9. HTF Structure
+        htf_structure = analysis.get('htf_structure', {})
+        if htf_structure and htf_structure.get('signal'):
+            htf_strength = abs(htf_structure['signal'].get('strength', 0))
+            max_weight = weights.get('htf_structure', 7)
+            scores['htf_structure'] = (htf_strength / 7) * max_weight
+        else:
+            scores['htf_structure'] = 0
         
         # 3. Premium/Discount
         zones = analysis.get('zones')
@@ -350,6 +432,15 @@ class ScoringEngine:
             scores['ma_alignment'] = strength_ratio * weights.get('ma_alignment', 5)
         else:
             scores['ma_alignment'] = 0
+
+        # 3. Liquidity Sweeps (NEXUS Elite)
+        liquidity = analysis.get('liquidity_sweeps', {})
+        if liquidity and liquidity.get('signal'):
+            liq_strength = abs(liquidity['signal'].get('strength', 0))
+            max_weight = weights.get('liquidity_sweeps', 8)
+            scores['liquidity_sweeps'] = (liq_strength / 8) * max_weight
+        else:
+            scores['liquidity_sweeps'] = 0
         
         # 3. Fibonacci (uses premium/discount zones)
         zones = analysis.get('zones')

@@ -15,6 +15,15 @@ from core.premium_discount_zones import get_premium_discount_zones
 from core.fvg_detector import get_fvg_detector
 from core.orderblock_detector import get_orderblock_detector
 from core.basic_indicators import get_basic_indicators
+from core.ichimoku_cloud import get_ichimoku_cloud
+from core.vwap_calculator import get_vwap_calculator
+from core.volume_profile import get_volume_profile
+from core.stochastic_rsi import get_stochastic_rsi
+from core.macd_indicator import get_macd_indicator
+from core.bollinger_bands import get_bollinger_bands
+from core.htf_structure import get_htf_structure
+from core.liquidity_sweeps import get_liquidity_sweeps
+from core.funding_rate import get_funding_rate
 from execution.binance_client import BinanceClientWrapper
 
 # Setup logging
@@ -46,6 +55,17 @@ class IndicatorManager:
         self.consolidation_detector = get_consolidation_detector()
         self.breakout_detector = get_breakout_detector()
         self.zones_calculator = get_premium_discount_zones()
+
+        # NEXUS Elite indicators
+        self.ichimoku = get_ichimoku_cloud()
+        self.vwap = get_vwap_calculator()
+        self.volume_profile = get_volume_profile()
+        self.stoch_rsi = get_stochastic_rsi()
+        self.macd = get_macd_indicator()
+        self.bollinger = get_bollinger_bands()
+        self.htf_structure = get_htf_structure()
+        self.liquidity_sweeps = get_liquidity_sweeps()
+        self.funding_rate = get_funding_rate()
         self.fvg_detector = get_fvg_detector()
         self.ob_detector = get_orderblock_detector()
         self.basic_indicators = get_basic_indicators()
@@ -195,6 +215,43 @@ class IndicatorManager:
             analysis['indicators'] = basic
             
             logger.info(f"Analysis complete for {symbol}")
+
+            # NEXUS ELITE INDICATORS
+            # 9. Ichimoku Cloud
+            ichimoku_result = self.ichimoku.calculate(candles)
+            analysis["ichimoku"] = ichimoku_result
+            
+            # 10. VWAP
+            vwap_result = self.vwap.calculate(candles)
+            analysis["vwap"] = vwap_result
+            
+            # 11. Volume Profile
+            volume_profile_result = self.volume_profile.calculate(candles)
+            analysis["volume_profile"] = volume_profile_result
+            
+            # 12. Stochastic RSI
+            stoch_rsi_result = self.stoch_rsi.calculate(candles)
+            analysis["stoch_rsi"] = stoch_rsi_result
+            
+            # 13. MACD
+            macd_result = self.macd.calculate(candles)
+            analysis["macd"] = macd_result
+            
+            # 14. Bollinger Bands
+            bollinger_result = self.bollinger.calculate(candles)
+            analysis["bollinger"] = bollinger_result
+            
+            # 15. HTF Structure (placeholder - needs H4/D1 data)
+            # Will be calculated when HTF data available
+            analysis["htf_structure"] = {"alignment": "neutral", "signal": {"strength": 0, "direction": "neutral", "components": {}}}
+            
+            # 16. Liquidity Sweeps
+            liquidity_result = self.liquidity_sweeps.detect(candles)
+            analysis["liquidity_sweeps"] = liquidity_result
+            
+            # 17. Funding Rate (placeholder - needs API data)
+            # Will be calculated when funding rate data available
+            analysis["funding_rate"] = {"funding_rate": 0, "sentiment": "neutral", "signal": {"strength": 0, "direction": "neutral", "components": {}}}
             return analysis
             
         except Exception as e:

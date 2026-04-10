@@ -127,7 +127,7 @@ class TelegramNotifier:
             bool: Success status
         """
         message = f"""🤖 *NEXUS BOT STARTED* {self.mode_prefix}
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 
 *Mode:* {config.get('mode', 'Paper Trading')}
 *Balance:* ${config.get('balance', 0):,.2f}
@@ -139,7 +139,7 @@ class TelegramNotifier:
 - Leverage: {config.get('min_leverage', 10)}-{config.get('max_leverage', 20)}x
 - Daily Limit: -{config.get('daily_limit', 5)}%
 
-⏰ Started: {config.get('start_time', 'N/A')}
+ Started: {config.get('start_time', 'N/A')}
 
 ✅ Bot monitoring market..."""
 
@@ -156,13 +156,13 @@ class TelegramNotifier:
         Returns:
             bool: Success status
         """
-        direction_emoji = "📈" if trade['direction'] == 'LONG' else "📉"
+        direction_emoji = "" if trade['direction'] == 'LONG' else "📉"
         
         message = f"""🚀 *TRADE OPENED* {self.mode_prefix}
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-📊 *POSITION DETAILS*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
+ *POSITION DETAILS*
+========================
 
 *Symbol:* {trade['symbol']}
 *Direction:* {trade['direction']} {direction_emoji}
@@ -170,33 +170,33 @@ class TelegramNotifier:
 *Size:* ${trade['position_size']:,.2f} ({trade.get('position_percent', 0):.1f}%)
 *Leverage:* {trade['leverage']}x
 
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 🎯 *TARGETS*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 
 *SL:*  ${trade['sl_price']:,.2f} ({trade['sl_percent']:+.2f}%)
 *TP1:* ${trade['tp1_price']:,.2f} ({trade['tp1_percent']:+.2f}%) [50%]
 *TP2:* ${trade['tp2_price']:,.2f} ({trade['tp2_percent']:+.2f}%) [30%]
 *TP3:* ${trade['tp3_price']:,.2f} ({trade['tp3_percent']:+.2f}%) [20%]
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-📈 *ANALYSIS*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
+ *ANALYSIS*
+========================
 
 *Score:* {trade['score']:.1f}/100 ({trade['grade']})
 *Setup:* {trade.get('setup_type', 'N/A')}
 *Reason:* {trade.get('reason', 'N/A')}
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-💼 *ACCOUNT STATUS*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
+ *ACCOUNT STATUS*
+========================
 
 *Balance:* ${account['balance']:,.2f}
 *Today's P&L:* ${account['daily_pnl']:+,.2f} ({account['daily_pnl_percent']:+.2f}%)
 *Open Positions:* {account['open_positions']}
 *Daily Trades:* {account['trades_today']}
 
-⏰ {trade.get('timestamp', 'N/A')}"""
+ {trade.get('timestamp', 'N/A')}"""
 
         return self.send_message(message)
     
@@ -214,9 +214,9 @@ class TelegramNotifier:
         """
         message = f"""🎯 *TP{tp_level} HIT!* {self.mode_prefix}
 
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 ✅ *PARTIAL CLOSE*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 
 *Symbol:* {trade['symbol']} {trade['direction']}
 *Entry:* ${trade['entry_price']:,.2f}
@@ -224,11 +224,11 @@ class TelegramNotifier:
 *Closed:* {trade['closed_percent']}% (${trade['closed_size']:,.2f})
 
 ⏱ *Duration:* {trade.get('duration', 'N/A')}
-💰 *Profit:* +${trade['profit']:,.2f} ({trade['profit_percent']:+.2f}%)
+ *Profit:* +${trade['profit']:,.2f} ({trade['profit_percent']:+.2f}%)
 
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 🔒 *RISK MANAGED*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 
 ✅ SL moved to Breakeven
 ✅ Trailing stop ACTIVE ({trade.get('trailing_distance', 0.5)}%)
@@ -237,15 +237,15 @@ class TelegramNotifier:
 *Next Targets:*
 {trade.get('next_targets', 'Position fully closed')}
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-💼 *UPDATED STATUS*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
+ *UPDATED STATUS*
+========================
 
 *Balance:* ${account['balance']:,.2f}
 *Today's P&L:* ${account['daily_pnl']:+,.2f} ({account['daily_pnl_percent']:+.2f}%)
 *Today's Trades:* {account['trades_today']} ({account['wins_today']}W/{account['losses_today']}L)
 
-⏰ {trade.get('timestamp', 'N/A')}"""
+ {trade.get('timestamp', 'N/A')}"""
 
         return self.send_message(message)
     
@@ -265,9 +265,9 @@ class TelegramNotifier:
         
         message = f"""{result_emoji} *POSITION CLOSED* {self.mode_prefix}
 
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 ✅ *TRADE SUMMARY*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 
 *Symbol:* {trade['symbol']} {trade['direction']}
 *Entry:* ${trade['entry_price']:,.2f}
@@ -275,23 +275,23 @@ class TelegramNotifier:
 *Size:* ${trade['position_size']:,.2f}
 
 ⏱ *Duration:* {trade.get('duration', 'N/A')}
-💰 *{result_text}:* ${trade['profit']:+,.2f} ({trade['profit_percent']:+.2f}%)
+ *{result_text}:* ${trade['profit']:+,.2f} ({trade['profit_percent']:+.2f}%)
 
 *Exit Breakdown:*
 {trade.get('exit_breakdown', 'N/A')}
 
 *Reason:* {trade.get('close_reason', 'N/A')}
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-💼 *ACCOUNT STATUS*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
+ *ACCOUNT STATUS*
+========================
 
 *Balance:* ${account['balance']:,.2f}
 *Today's P&L:* ${account['daily_pnl']:+,.2f} ({account['daily_pnl_percent']:+.2f}%)
 *Open Positions:* {account['open_positions']}
 *Today's Trades:* {account['trades_today']} ({account['wins_today']}W/{account['losses_today']}L)
 
-⏰ {trade.get('timestamp', 'N/A')}"""
+ {trade.get('timestamp', 'N/A')}"""
 
         return self.send_message(message)
     
@@ -307,9 +307,9 @@ class TelegramNotifier:
         """
         message = f"""⚠️ *DAILY LOSS WARNING* {self.mode_prefix}
 
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 📉 *APPROACHING LIMIT*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 
 *Current Daily Loss:* ${account['daily_pnl']:,.2f} ({account['daily_pnl_percent']:.2f}%)
 *Daily Limit:* -{account['daily_limit']}%
@@ -318,15 +318,15 @@ class TelegramNotifier:
 ⚠️ *Caution:* Close to daily limit!
 Next trade will be monitored closely.
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-💼 *CURRENT STATUS*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
+ *CURRENT STATUS*
+========================
 
 *Balance:* ${account['balance']:,.2f}
 *Today's Trades:* {account['trades_today']} ({account['wins_today']}W/{account['losses_today']}L)
 *Open Positions:* {account['open_positions']}
 
-⏰ {account.get('timestamp', 'N/A')}"""
+ {account.get('timestamp', 'N/A')}"""
 
         return self.send_message(message)
     
@@ -342,9 +342,9 @@ Next trade will be monitored closely.
         """
         message = f"""🛑 *DAILY LOSS LIMIT HIT!* {self.mode_prefix}
 
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 ⛔ *TRADING SUSPENDED*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 
 *Daily Loss:* ${account['daily_pnl']:,.2f} ({account['daily_pnl_percent']:.2f}%)
 *Daily Limit:* -{account['daily_limit']}%
@@ -353,9 +353,9 @@ Next trade will be monitored closely.
 *Trading will resume at:*
 🕐 {account['next_reset']}
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-📊 *TODAY'S SUMMARY*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
+ *TODAY'S SUMMARY*
+========================
 
 *Starting Balance:* ${account['start_balance']:,.2f}
 *Current Balance:* ${account['balance']:,.2f}
@@ -367,9 +367,9 @@ Next trade will be monitored closely.
 
 *Largest Loss:* ${account.get('largest_loss', 0):,.2f}
 
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 💡 *ANALYSIS*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 
 *Market:* {account.get('market_condition', 'Volatile/Choppy')}
 *Recommendation:* Rest & reset
@@ -389,10 +389,31 @@ See you tomorrow! 💪"""
         Returns:
             bool: Success status
         """
-        message = f"""🌅 *DAILY RESET - NEW DAY* {self.mode_prefix}
+        # Extract yesterday's insights
+        best_score = yesterday.get('best_score', 0)
+        best_symbol = yesterday.get('best_symbol', 'N/A')
+        signals_count = yesterday.get('signals_count', 0)
+        near_misses = yesterday.get('near_misses_count', 0)
+        trades = yesterday.get('trades', 0)
+        
+        # Build opportunities analysis
+        opportunities_text = ""
+        if best_score > 0 or signals_count > 0 or near_misses > 0:
+            opportunities_text = f"""
+━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 YESTERDAY'S OPPORTUNITIES
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Best Score:* {best_score:.1f} ({best_symbol})
+*Signals >=55:* {signals_count}
+*Near-miss (50-54.9):* {near_misses}
+*Trades Executed:* {trades}
+{'*Result:* No qualified setups' if signals_count == 0 and trades == 0 else ''}"""
+        
+        message = f"""🆕 DAILY RESET - NEW DAY {self.mode_prefix}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━
-📊 *YESTERDAY'S PERFORMANCE*
+📈 YESTERDAY'S PERFORMANCE
 ━━━━━━━━━━━━━━━━━━━━━━━━
 
 *Date:* {yesterday['date']}
@@ -402,7 +423,7 @@ See you tomorrow! 💪"""
 *Net P&L:* ${yesterday.get('pnl', 0):+,.2f} ({yesterday.get('pnl_percent', 0):+.2f}%) {'✅' if yesterday.get('pnl', 0) > 0 else '❌'}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━
-📈 *TRADING STATS*
+📊 TRADING STATS
 ━━━━━━━━━━━━━━━━━━━━━━━━
 
 *Total Trades:* {yesterday.get('trades', 0)} ({yesterday.get('wins', 0)}W/{yesterday.get('losses', 0)}L)
@@ -413,10 +434,10 @@ See you tomorrow! 💪"""
 *Profit Factor:* {yesterday.get('profit_factor', 0):.2f}
 
 *Best Trade:* +${yesterday.get('best_trade', 0):,.2f} ({yesterday.get('best_symbol', 'N/A')})
-*Worst Trade:* ${yesterday.get('worst_trade', 0):,.2f} ({yesterday.get('worst_symbol', 'N/A')})
+*Worst Trade:* ${yesterday.get('worst_trade', 0):,.2f} ({yesterday.get('worst_symbol', 'N/A')}){opportunities_text}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━
-📅 *CUMULATIVE STATS*
+📅 CUMULATIVE STATS
 ━━━━━━━━━━━━━━━━━━━━━━━━
 
 *All-Time P&L:* ${today.get('cumulative_pnl', 0):+,.2f}
@@ -426,7 +447,7 @@ See you tomorrow! 💪"""
 *Days Traded:* {today.get('days_traded', 0)}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━
-🆕 *NEW DAY STARTED*
+🆕 NEW DAY STARTED
 ━━━━━━━━━━━━━━━━━━━━━━━━
 
 *Date:* {today['date']}
@@ -435,9 +456,9 @@ See you tomorrow! 💪"""
 *Daily Limit:* ${today['daily_limit']:,.2f} ({today['daily_limit_percent']}%)
 *Daily Counter:* RESET ✅
 
-*Status:* ACTIVE & MONITORING 🟢
+*Status:* ACTIVE & MONITORING
 
-Let's make it a great day! 💪"""
+Let's make it a great day!"""
 
         return self.send_message(message)
     
@@ -452,24 +473,24 @@ Let's make it a great day! 💪"""
         Returns:
             bool: Success status
         """
-        message = f"""⏭️ *NO SIGNAL - WAITING* {self.mode_prefix}
+        message = f""" *NO SIGNAL - WAITING* {self.mode_prefix}
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-🔍 *SCAN RESULTS*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
+ *SCAN RESULTS*
+========================
 
 *Top Scores:*
 {scan_results.get('top_scores', 'No scores available')}
 
 *Threshold:* {scan_results.get('threshold', 55)}
-*Status:* All below threshold ⏸️
+*Status:* All below threshold 
 
 *Market:* {scan_results.get('market_condition', 'Choppy/Trending')}
 *Quality:* {scan_results.get('setup_quality', 'Low')}
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-💼 *ACCOUNT STATUS*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
+ *ACCOUNT STATUS*
+========================
 
 *Balance:* ${account['balance']:,.2f}
 *Today's P&L:* ${account['daily_pnl']:+,.2f} ({account['daily_pnl_percent']:+.2f}%)
@@ -477,12 +498,45 @@ Let's make it a great day! 💪"""
 
 Waiting for quality setup...
 
-⏰ {scan_results.get('timestamp', 'N/A')}
+ {scan_results.get('timestamp', 'N/A')}
 
 ✅ Patience = Profit! 🎯"""
 
         return self.send_message(message)
     
+    def notify_heartbeat(self, heartbeat_info: Dict) -> bool:
+        """
+        Send 4-hour heartbeat notification
+        
+        Args:
+            heartbeat_info: Heartbeat data
+            
+        Returns:
+            bool: Success status
+        """
+        template = f"""
+⏰ *4-HOUR HEARTBEAT* {self.mode_prefix}
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+💰 *ACCOUNT STATUS*
+Balance: ${heartbeat_info['balance']:,.2f}
+Today's P&L: ${heartbeat_info['daily_pnl']:+,.2f} ({heartbeat_info['daily_pnl_percent']:+.2f}%)
+
+📊 *ACTIVITY*
+Open Positions: {heartbeat_info['open_positions']}
+Trades Today: {heartbeat_info['trades_today']}
+Status: {heartbeat_info['status']} ✅
+
+⏱️ *TIMING*
+Hours Since Last: {heartbeat_info['hours_since_last']}h
+Next Reset: {heartbeat_info['next_reset_utc']}
+
+🤖 Bot is alive and monitoring market!
+"""
+        
+        return self._send_message(template)
+
+
     def notify_error(self, error: Dict) -> bool:
         """
         Notify error
@@ -495,9 +549,9 @@ Waiting for quality setup...
         """
         message = f"""⚠️ *ERROR ALERT!* {self.mode_prefix}
 
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 🔴 *SYSTEM ERROR*
-━━━━━━━━━━━━━━━━━━━━━━━━
+========================
 
 *Type:* {error.get('type', 'Unknown')}
 *Component:* {error.get('component', 'Unknown')}
@@ -506,7 +560,7 @@ Waiting for quality setup...
 *Impact:* {error.get('impact', 'Unknown')}
 *Action:* {error.get('action', 'Automatic retry')}
 
-⏰ {error.get('timestamp', 'N/A')}
+ {error.get('timestamp', 'N/A')}
 
 System will notify when resolved."""
 
@@ -619,18 +673,18 @@ if __name__ == "__main__":
         Returns:
             bool: Success status
         """
-        message = f"""📊 DAILY REPORT - {report.get('date', 'N/A')}
+        message = f""" DAILY REPORT - {report.get('date', 'N/A')}
 
 ⚙️ OPERATIONAL
 Scans: {report.get('scans', 0)}
 Signals: {report.get('signals', 0)}
 Best: {report.get('best_symbol', 'N/A')} ({report.get('best_score', 0):.1f})
 
-💰 PERFORMANCE
+ PERFORMANCE
 Balance: ${report.get('start_balance', 0):,.2f} → ${report.get('end_balance', 0):,.2f}
 P&L: ${report.get('pnl', 0):+,.2f} ({report.get('pnl_percent', 0):+.2f}%)
 
-📈 TRADING
+ TRADING
 Trades: {report.get('trades', 0)} ({report.get('wins', 0)}W/{report.get('losses', 0)}L)
 Win Rate: {report.get('win_rate', 0):.1f}%
 
@@ -648,20 +702,20 @@ Status: {'✅ Profitable' if report.get('pnl', 0) > 0 else '⚠️ Break-even' i
         Returns:
             bool: Success status
         """
-        message = f"""📊 WEEKLY REPORT
+        message = f""" WEEKLY REPORT
 {report.get('week_start', 'N/A')} → {report.get('week_end', 'N/A')}
 
-💰 PERFORMANCE
+ PERFORMANCE
 Starting: ${report.get('start_balance', 0):,.2f}
 Ending: ${report.get('end_balance', 0):,.2f}
 Total P&L: ${report.get('total_pnl', 0):+,.2f} ({report.get('pnl_percent', 0):+.2f}%)
 
-📈 TRADING
+ TRADING
 Total Trades: {report.get('total_trades', 0)}
 Wins/Losses: {report.get('total_wins', 0)}W / {report.get('total_losses', 0)}L
 Win Rate: {report.get('win_rate', 0):.1f}%
 
-📊 ACTIVITY
+ ACTIVITY
 Scans: {report.get('total_scans', 0):,}
 Signals: {report.get('total_signals', 0)}
 
@@ -686,15 +740,15 @@ Status: {'✅ Profitable week' if report.get('total_pnl', 0) > 0 else '⚠️ Br
         Returns:
             bool: Success status
         """
-        message = f"""📊 MONTHLY REPORT
+        message = f""" MONTHLY REPORT
 {report.get('month_start', 'N/A')} → {report.get('month_end', 'N/A')}
 
-💰 OVERALL PERFORMANCE
+ OVERALL PERFORMANCE
 Starting: ${report.get('start_balance', 0):,.2f}
 Ending: ${report.get('end_balance', 0):,.2f}
 Total Return: ${report.get('total_pnl', 0):+,.2f} ({report.get('pnl_percent', 0):+.2f}%)
 
-📈 TRADING STATISTICS
+ TRADING STATISTICS
 Total Trades: {report.get('total_trades', 0)}
 Wins/Losses: {report.get('total_wins', 0)}W / {report.get('total_losses', 0)}L
 Win Rate: {report.get('win_rate', 0):.1f}%
