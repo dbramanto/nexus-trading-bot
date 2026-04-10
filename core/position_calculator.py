@@ -248,25 +248,28 @@ class PositionCalculator:
                 tp1_price = entry_price - (risk * 1.5)
                 tp2_price = entry_price - (risk * 2.5)
                 tp3_price = entry_price - (risk * 4.0)
+
+            # Get ATR for trailing calculation
+            atr = analysis.get('atr', risk * 0.5)  # Fallback to 50% of risk
             
             return {
                 'tp1': {
                     'price': round(tp1_price, 2),
                     'rr_ratio': 1.5,
-                    'allocation': 50  # 50% of position
+                    'allocation': 40  # 40% close at TP1
                 },
-                'tp2': {
-                    'price': round(tp2_price, 2),
-                    'rr_ratio': 2.5,
-                    'allocation': 30  # 30% of position
+                'breakeven_plus': {
+                    'price': round(entry_price + (risk * 0.25), 2),  # Entry + 25% of risk
+                    'activate_after_tp1': True
                 },
-                'tp3': {
-                    'price': round(tp3_price, 2),
-                    'rr_ratio': 4.0,
-                    'allocation': 20  # 20% of position
+                'trailing': {
+                    'allocation': 60,  # 60% remaining
+                    'distance': round(atr * 1.5, 2),  # 1.5x ATR trailing distance
+                    'start_after_tp1': True
                 },
-                'method': 'multi_tp'
+                'method': 'partial_tp_trailing'
             }
+
         
         else:
             # Single TP

@@ -246,9 +246,12 @@ class PaperTradingEngine:
     
     def _check_take_profit(self, position: Dict, current_price: float):
         """
-        Check if take profit levels are hit and manage exits
+        Check TP1 and manage trailing stop for remaining 60%
         
-        Also updates trailing stop after TP1
+        NEW LOGIC:
+        - TP1 (40% close)
+        - Move SL to BE+ after TP1
+        - Trail remaining 60% with 1.5x ATR distance
         
         Args:
             position: Position data
@@ -259,11 +262,11 @@ class PaperTradingEngine:
         
         # Update highest/lowest for trailing
         if direction == 'LONG':
-            position['highest_price'] = max(position['highest_price'], current_price)
+            position['highest_price'] = max(position.get('highest_price', current_price), current_price)
         else:
-            position['lowest_price'] = min(position['lowest_price'], current_price)
+            position['lowest_price'] = min(position.get('lowest_price', current_price), current_price)
         
-        # Check TP1 (50% allocation)
+        # Check TP1 (40% allocation)
         if not position.get('tp1_filled', False):
             tp1_price = tp_data['tp1']['price']
             tp1_hit = False
@@ -274,7 +277,7 @@ class PaperTradingEngine:
                 tp1_hit = True
             
             if tp1_hit:
-                allocation = tp_data['tp1'].get('allocation', 50)
+                allocation = tp_data['tp1'].get('allocation', 40)
                 result = self.close_partial_position(
                     position['position_id'],
                     percentage=allocation,
@@ -285,70 +288,32 @@ class PaperTradingEngine:
                 if result.get('success'):
                     position['tp1_filled'] = True
                     
-                    # Move SL to breakeven
-                    position['stop_loss'] = position['entry_price']
+                    # Move SL to breakeven+ (Entry + 25% of risk)
+                    if 'breakeven_plus' in tp_data:
+                        be_plus_price = tp_data['breakeven_plus']['price']
+                        position['stop_loss'] = be_plus_price
+                        logger.info(f"SL moved to BE+ ${be_plus_price:,.2f}")
+                    else:
+                        # Fallback to exact BE
+                        position['stop_loss'] = position['entry_price']
+                        logger.info(f"SL moved to BE ${position['entry_price']:,.2f}")
                     
-                    # Activate trailing stop
+                    # Activate trailing stop for remaining 60%
                     position['trailing_active'] = True
+                    if 'trailing' in tp_data:
+                        position['trail_distance'] = tp_data['trailing']['distance']
                     
                     logger.info(
-                        f"✅ TP1 HIT! 50% closed @ ${tp1_price:,.2f}, "
-                        f"SL → BE ${position['entry_price']:,.2f}, "
-                        f"trailing activated"
+                        f"✅ TP1 HIT! {allocation}% closed @ ${tp1_price:,.2f}, "
+                        f"SL → BE+ ${position['stop_loss']:,.2f}, "
+                        f"trailing activated (60% remaining)"
                     )
                 return
-        
-        # Check TP2 (30% allocation)
-        if position.get('tp1_filled') and not position.get('tp2_filled', False):
-            if 'tp2' in tp_data:
-                tp2_price = tp_data['tp2']['price']
-                tp2_hit = False
-                
-                if direction == 'LONG' and current_price >= tp2_price:
-                    tp2_hit = True
-                elif direction == 'SHORT' and current_price <= tp2_price:
-                    tp2_hit = True
-                
-                if tp2_hit:
-                    # Close 30% of ORIGINAL position
-                    allocation = tp_data['tp2'].get('allocation', 30)
-                    result = self.close_partial_position(
-                        position['position_id'],
-                        percentage=allocation,
-                        exit_price=tp2_price,
-                        reason='TAKE_PROFIT_2'
-                    )
-                    
-                    if result.get('success'):
-                        position['tp2_filled'] = True
-                        logger.info(f"✅ TP2 HIT! 30% closed @ ${tp2_price:,.2f}")
-                    return
-        
-        # Check TP3 (20% allocation - final target)
-        if position.get('tp2_filled') and not position.get('tp3_filled', False):
-            if 'tp3' in tp_data:
-                tp3_price = tp_data['tp3']['price']
-                tp3_hit = False
-                
-                if direction == 'LONG' and current_price >= tp3_price:
-                    tp3_hit = True
-                elif direction == 'SHORT' and current_price <= tp3_price:
-                    tp3_hit = True
-                
-                if tp3_hit:
-                    # Close remaining position (20%)
-                    self.close_position(
-                        position['position_id'],
-                        exit_price=tp3_price,
-                        reason='TAKE_PROFIT_3'
-                    )
-                    logger.info(f"🎯 TP3 HIT! Full target achieved @ ${tp3_price:,.2f}")
-                    return
         
         # Apply trailing stop if active (after TP1)
         if position.get('trailing_active'):
             self._update_trailing_stop(position, current_price)
-    
+
     def _update_trailing_stop(self, position: Dict, current_price: float):
         """
         Update trailing stop based on price movement
