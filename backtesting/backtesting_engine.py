@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 import pandas as pd
 from tqdm import tqdm
+from backtesting.historical_adapter import HistoricalDataAdapter
 
 # Setup logging
 logging.basicConfig(
@@ -97,6 +98,10 @@ class BacktestingEngine:
                 logger.info(f"Loaded {symbol} {interval}: {len(df)} candles")
         
         logger.info(f"✅ Loaded data for {len(data)} symbols")
+        
+        # Store for adapter use
+        self.historical_data = data
+        
         return data
     
     def initialize_nexus_components(self):
@@ -128,6 +133,14 @@ class BacktestingEngine:
         self.signal_generator = SignalGenerator()
         
         logger.info("✅ NEXUS components initialized")
+
+        # Create historical data adapter
+        self.adapter = HistoricalDataAdapter(self.historical_data)
+        
+        # Inject adapter into IndicatorManager
+        self.adapter.inject_into_indicator_manager(self.indicator_manager)
+        
+        logger.info("✅ Historical adapter configured")
     
     def get_candles_at_timestamp(
         self,
@@ -219,6 +232,9 @@ class BacktestingEngine:
             # Get candles at this timestamp
             current_candles = self.get_candles_at_timestamp(data, timestamp)
             
+            # Set current timestamp in adapter
+            self.adapter.set_timestamp(timestamp)
+            
             # Analyze each symbol
             for symbol in symbols:
                 if symbol not in current_candles:
@@ -265,8 +281,8 @@ class BacktestingEngine:
         )
         
         # Calculate scores
-        score_long = self.scoring_engine.calculate_score(symbol, analysis, 'LONG')
-        score_short = self.scoring_engine.calculate_score(symbol, analysis, 'SHORT')
+        score_long = self.scoring_engine.calculate_score(analysis, 'LONG')
+        score_short = self.scoring_engine.calculate_score(analysis, 'SHORT')
         
         # Record scan
         scan_data = {
