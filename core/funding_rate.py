@@ -20,7 +20,7 @@ Version: 1.0.0
 
 import pandas as pd
 import numpy as np
-from typing import Dict
+from typing import Dict, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,61 @@ class FundingRate:
             f"FundingRate initialized "
             f"(extreme_pos={extreme_positive}%, extreme_neg={extreme_negative}%)"
         )
+
+    def calculate(self, symbol: str, binance_client=None) -> Dict:
+        """
+        Calculate funding rate analysis using real Binance data
+        
+        Args:
+            symbol: Trading symbol (e.g., 'BTCUSDT')
+            binance_client: BinanceClientWrapper instance
+        
+        Returns:
+            dict: Complete funding rate analysis
+        """
+        try:
+            if binance_client is None:
+                logger.warning("No Binance client provided, returning placeholder")
+                return self._empty_result()
+            
+            # Get funding rate from Binance
+            funding_data = binance_client.get_funding_rate(symbol, limit=10)
+            
+            if not funding_data:
+                logger.warning(f"No funding data for {symbol}")
+                return self._empty_result()
+            
+            # Get latest funding rate
+            latest = funding_data[-1]
+            funding_rate_raw = float(latest['fundingRate'])
+            funding_rate_pct = funding_rate_raw * 100  # Convert to %
+            
+            # Calculate average over last 10 periods
+            rates = [float(f['fundingRate']) * 100 for f in funding_data]
+            avg_rate = sum(rates) / len(rates)
+            
+            # Analyze
+            analysis = self.analyze(funding_rate_pct)
+            
+            # Add extra info
+            analysis['avg_funding_rate'] = avg_rate
+            analysis['trend'] = 'increasing' if funding_rate_pct > avg_rate else 'decreasing'
+            analysis['raw_data'] = {
+                'latest': funding_rate_raw,
+                'timestamp': latest['fundingTime'],
+                'history_count': len(funding_data)
+            }
+            
+            logger.debug(
+                f"Funding rate for {symbol}: {funding_rate_pct:.4f}% "
+                f"(sentiment: {analysis['sentiment']})"
+            )
+            
+            return analysis
+            
+        except Exception as e:
+            logger.error(f"Error calculating funding rate for {symbol}: {e}")
+            return self._empty_result()
     
     def analyze(self, funding_rate: float) -> Dict:
         """

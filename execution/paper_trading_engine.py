@@ -31,6 +31,7 @@ class PaperTradingEngine:
         leverage: float = 20.0,
         taker_fee: float = 0.0005,  # 0.05%
         slippage: float = 0.0002,   # 0.02%
+        max_positions: int = 1,     # Max concurrent positions (1 for learning)
         data_dir: str = 'data/paper_trading'
     ):
         """
@@ -62,6 +63,7 @@ class PaperTradingEngine:
         
         # Position ID counter
         self.position_id_counter = 1
+        self.max_positions = max_positions
         
         # Create data directory
         self.data_dir.mkdir(parents=True, exist_ok=True)
@@ -125,6 +127,18 @@ class PaperTradingEngine:
         # Calculate fees
         fee = position_size_usdt * self.taker_fee
         
+        # Check max positions limit
+        current_positions = len(self.open_positions)
+        if current_positions >= self.max_positions:
+            logger.warning(
+                f"Max positions ({self.max_positions}) reached. "
+                f"Current: {current_positions}. Skipping {symbol} {direction}"
+            )
+            return {
+                'success': False,
+                'reason': 'Max positions reached'
+            }
+
         # Calculate margin required
         margin_required = position_size_usdt / leverage
         
@@ -617,6 +631,7 @@ class PaperTradingEngine:
         self.open_positions = []
         self.closed_trades = []
         self.position_id_counter = 1
+        self.max_positions = max_positions
         
         logger.info("Paper trading account reset")
 

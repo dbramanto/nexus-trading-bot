@@ -192,6 +192,107 @@ class BinanceClientWrapper:
             logger.error(f"Error getting account: {e}")
             return None
     
+    def get_funding_rate(self, symbol: str, limit: int = 10) -> List[Dict]:
+        """
+        Get funding rate history for a futures symbol
+        
+        Args:
+            symbol: Futures symbol (e.g., 'BTCUSDT')
+            limit: Number of records (default: 10, max: 1000)
+        
+        Returns:
+            list: Funding rate history
+        """
+        try:
+            funding = self.client.futures_funding_rate(
+                symbol=symbol,
+                limit=limit
+            )
+            logger.debug(f"Fetched {len(funding)} funding rate records for {symbol}")
+            return funding
+        except BinanceAPIException as e:
+            logger.error(f"API error getting funding rate for {symbol}: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Error getting funding rate for {symbol}: {e}")
+            return []
+
+    def get_open_interest(self, symbol: str) -> Optional[Dict]:
+        """
+        Get current open interest for a futures symbol
+        
+        Args:
+            symbol: Futures symbol (e.g., 'BTCUSDT')
+        
+        Returns:
+            dict: Open interest data or None if error
+        """
+        try:
+            oi = self.client.futures_open_interest(symbol=symbol)
+            logger.debug(f"Fetched open interest for {symbol}: {oi}")
+            return oi
+        except BinanceAPIException as e:
+            logger.error(f"API error getting open interest for {symbol}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Error getting open interest for {symbol}: {e}")
+            return None
+
+    def get_open_interest_hist(self, symbol: str, period: str = '5m', limit: int = 30) -> List[Dict]:
+        """
+        Get open interest history for analysis
+        
+        Args:
+            symbol: Futures symbol (e.g., 'BTCUSDT')
+            period: Time period ('5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d')
+            limit: Number of records (default: 30, max: 500)
+        
+        Returns:
+            list: Open interest history
+        """
+        try:
+            oi_hist = self.client.futures_open_interest_hist(
+                symbol=symbol,
+                period=period,
+                limit=limit
+            )
+            logger.debug(f"Fetched {len(oi_hist)} OI history records for {symbol}")
+            return oi_hist
+        except BinanceAPIException as e:
+            logger.error(f"API error getting OI history for {symbol}: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Error getting OI history for {symbol}: {e}")
+            return []
+
+    def get_long_short_ratio(self, symbol: str, period: str = '5m', limit: int = 30) -> List[Dict]:
+        """
+        Get long/short account ratio
+        
+        Args:
+            symbol: Futures symbol (e.g., 'BTCUSDT')
+            period: Time period ('5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d')
+            limit: Number of records (default: 30, max: 500)
+        
+        Returns:
+            list: Long/short ratio history
+        """
+        try:
+            ratio = self.client.futures_top_longshort_account_ratio(
+                symbol=symbol,
+                period=period,
+                limit=limit
+            )
+            logger.debug(f"Fetched {len(ratio)} long/short ratio records for {symbol}")
+            return ratio
+        except BinanceAPIException as e:
+            logger.error(f"API error getting long/short ratio for {symbol}: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Error getting long/short ratio for {symbol}: {e}")
+            return []
+
+
     def get_futures_symbols(self) -> List[str]:
         """
         Get all USDT futures trading pairs

@@ -24,6 +24,7 @@ from core.bollinger_bands import get_bollinger_bands
 from core.htf_structure import get_htf_structure
 from core.liquidity_sweeps import get_liquidity_sweeps
 from core.funding_rate import get_funding_rate
+from core.open_interest import get_open_interest
 from execution.binance_client import BinanceClientWrapper
 
 # Setup logging
@@ -66,6 +67,7 @@ class IndicatorManager:
         self.htf_structure = get_htf_structure()
         self.liquidity_sweeps = get_liquidity_sweeps()
         self.funding_rate = get_funding_rate()
+        self.open_interest = get_open_interest()
         self.fvg_detector = get_fvg_detector()
         self.ob_detector = get_orderblock_detector()
         self.basic_indicators = get_basic_indicators()
@@ -241,9 +243,28 @@ class IndicatorManager:
             bollinger_result = self.bollinger.calculate(candles)
             analysis["bollinger"] = bollinger_result
             
-            # 15. HTF Structure (placeholder - needs H4/D1 data)
-            # Will be calculated when HTF data available
-            analysis["htf_structure"] = {"alignment": "neutral", "signal": {"strength": 0, "direction": "neutral", "components": {}}}
+            # 15. HTF Structure (1H + 4H analysis for M15)
+            try:
+                # Fetch 1H data (primary HTF - 4x M15)
+                h1_candles = self.fetch_candles(symbol, '1h', limit=100)
+                
+                # Fetch 4H data (secondary HTF - 16x M15)
+                h4_candles = self.fetch_candles(symbol, '4h', limit=100)
+                
+                # Analyze HTF structure (1H as primary, 4H as confirmation)
+                htf_result = self.htf_structure.analyze(
+                    h4_data=h1_candles,  # Using h4_data param for 1H (primary)
+                    d1_data=h4_candles,  # Using d1_data param for 4H (secondary)
+                    current_timeframe=primary_tf
+                )
+                analysis["htf_structure"] = htf_result
+                
+            except Exception as e:
+                logger.warning(f"HTF Structure analysis failed: {e}")
+                analysis["htf_structure"] = {
+                    "alignment": "neutral", 
+                    "signal": {"strength": 0, "direction": "neutral", "components": {}}
+                }
             
             # 16. Liquidity Sweeps
             liquidity_result = self.liquidity_sweeps.detect(candles)
@@ -251,7 +272,35 @@ class IndicatorManager:
             
             # 17. Funding Rate (placeholder - needs API data)
             # Will be calculated when funding rate data available
-            analysis["funding_rate"] = {"funding_rate": 0, "sentiment": "neutral", "signal": {"strength": 0, "direction": "neutral", "components": {}}}
+            # 17. Funding Rate (real data from Binance)
+            try:
+                funding_result = self.funding_rate.calculate(symbol, binance_client=self.client)
+                analysis["funding_rate"] = funding_result
+            except Exception as e:
+                logger.warning(f"Funding Rate analysis failed: {e}")
+                analysis["funding_rate"] = {
+                    "rate": 0,
+                    "signal": {"strength": 0, "direction": "neutral"}
+                }
+
+            # 18. Open Interest (Binance Futures)
+            try:
+                oi_result = self.open_interest.analyze(
+                    symbol=symbol,
+                    current_price=candles["close"].iloc[-1],
+                    binance_client=self.client
+                )
+                analysis["open_interest"] = oi_result
+            except Exception as e:
+                logger.warning(f"Open Interest analysis failed: {e}")
+                analysis["open_interest"] = {
+                    "oi_current": 0,
+                    "oi_change_pct": 0,
+                    "signal": {"score": 0, "direction": "neutral"}
+                }
+            except Exception as e:
+                logger.warning(f"Failed to get funding rate for {symbol}: {e}")
+                analysis["funding_rate"] = {"funding_rate": 0, "sentiment": "neutral", "signal": {"strength": 0, "direction": "neutral", "components": {}}}
             return analysis
             
         except Exception as e:

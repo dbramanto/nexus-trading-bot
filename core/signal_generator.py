@@ -21,7 +21,7 @@ class SignalGenerator:
     
     def __init__(
         self,
-        min_score: float = 55.0,
+        min_score: float = 57.5,
         min_score_diff: float = 5.0
     ):
         """
@@ -334,7 +334,7 @@ class SignalGenerator:
 
 # Convenience function
 def get_signal_generator(
-    min_score: float = 55.0,
+    min_score: float = 57.5,
     min_score_diff: float = 5.0
 ) -> SignalGenerator:
     """

@@ -206,7 +206,17 @@ class ScoringEngine:
         else:
             scores['funding_rate'] = 0
         
-        # 3. Liquidity (FVG + OB presence)
+
+        # 4. Open Interest (Crypto-specific)
+        open_interest = analysis.get('open_interest', {})
+        if open_interest and open_interest.get('signal'):
+            oi_score = open_interest['signal'].get('score', 0)
+            # OI scores from -2 to +5, take only positive
+            scores['open_interest'] = max(0, oi_score)
+        else:
+            scores['open_interest'] = 0
+
+        # 5. Liquidity (FVG + OB presence)
         fvgs = analysis.get('fvgs', [])
         obs = analysis.get('order_blocks', [])
         
@@ -221,7 +231,7 @@ class ScoringEngine:
         else:
             scores['liquidity'] = 0
         
-        # 4. Range Duration
+        # 6. Range Duration
         if consolidation:
             duration = consolidation.get('duration_candles', 0)
             min_duration = 16

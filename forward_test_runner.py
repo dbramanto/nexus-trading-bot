@@ -691,16 +691,16 @@ Positions: {account['open_positions']}
             self.telegram.notify_daily_report(daily_report)
             logger.info("Daily report sent")
             
-            # Weekly report (Sunday only)
-            if now_utc.weekday() == 6:  # Sunday = 6
+            # Weekly report (Monday only, 00:01 UTC / 07:01 WIB)
+            if now_utc.weekday() == 0 and now_utc.hour == 0 and now_utc.minute == 1:  # Monday
                 logger.info("Generating weekly report...")
                 weekly_report = self.report_generator.generate_weekly_report()
                 if weekly_report:
                     self.telegram.notify_weekly_report(weekly_report)
                     logger.info("Weekly report sent")
             
-            # Monthly report (1st day of month only)
-            if current_date.day == 1:
+            # Monthly report (Monday of 1st week only, 00:01 UTC / 07:01 WIB)
+            if now_utc.weekday() == 0 and now_utc.hour == 0 and now_utc.minute == 1 and current_date.day <= 7:  # First Monday of month
                 logger.info("Generating monthly report...")
                 monthly_report = self.report_generator.generate_monthly_report()
                 if monthly_report:
