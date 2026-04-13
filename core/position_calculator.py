@@ -315,7 +315,8 @@ class PositionCalculator:
         sl_distance_percent = (sl_distance / entry_price) * 100
         
         # Position size in quote currency (USDT)
-        position_size_usdt = risk_amount / (sl_distance_percent / 100)
+        # Correct formula: position_size = risk / (sl_distance / entry_price)
+        position_size_usdt = (risk_amount * entry_price) / sl_distance
         
         # Calculate required leverage
         required_leverage = position_size_usdt / account_balance
