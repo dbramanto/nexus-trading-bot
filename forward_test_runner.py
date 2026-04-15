@@ -117,8 +117,7 @@ class ForwardTestRunner:
         
         logger.info("[3/11] Initializing daily session manager...")
         self.session_manager = get_daily_session_manager(
-            initial_balance=self.initial_balance,
-            daily_loss_limit=5.0
+            initial_balance=self.initial_balance
         )
         
         logger.info("[4/11] Initializing Telegram notifier...")
@@ -406,12 +405,12 @@ class ForwardTestRunner:
             'leverage': position['leverage'],
             'sl_price': position['stop_loss'],
             'sl_percent': ((position['stop_loss'] - position['entry_price']) / position['entry_price'] * 100),
-            'tp1_price': position['take_profit']['tp1'],
-            'tp1_percent': ((position['take_profit']['tp1'] - position['entry_price']) / position['entry_price'] * 100),
-            'tp2_price': position['take_profit']['tp2'],
-            'tp2_percent': ((position['take_profit']['tp2'] - position['entry_price']) / position['entry_price'] * 100),
-            'tp3_price': position['take_profit']['tp3'],
-            'tp3_percent': ((position['take_profit']['tp3'] - position['entry_price']) / position['entry_price'] * 100),
+            'tp1_price': position['take_profit']['tp1']['price'],
+            'tp1_percent': ((position['take_profit']['tp1']['price'] - position['entry_price']) / position['entry_price'] * 100),
+            #             'tp2_price': position['take_profit']['tp2']['price'],
+            #             'tp2_percent': ((position['take_profit']['tp2']['price'] - position['entry_price']) / position['entry_price'] * 100),
+            #             'tp3_price': position['take_profit']['tp3']['price'],
+            #             'tp3_percent': ((position['take_profit']['tp3']['price'] - position['entry_price']) / position['entry_price'] * 100),
             'score': result.get('signal_score', 0),
             'grade': result.get('signal_grade', 'N/A'),
             'setup_type': 'Consolidation Breakout',

@@ -128,7 +128,7 @@ class PositionCalculator:
         logger.info(
             f"Position calculated: Size=${size_data['position_size_usdt']:,.2f} "
             f"SL=${sl_data['price']:,.2f} ({sl_data['distance_percent']:.2f}%) "
-            f"TP1=${tp_data['tp1']['price']:,.2f} RR={risk_data['rr_ratio_tp1']:.2f}"
+            f"TP1=${tp_data['tp1']['price']:,.2f} Leverage={size_data['leverage']:.1f}x RR={risk_data['rr_ratio_tp1']:.2f}"
         )
         
         return position
@@ -321,38 +321,10 @@ class PositionCalculator:
         # Calculate required leverage
         required_leverage = position_size_usdt / account_balance
         
-        # Enforce leverage range: 10-20x
-        leverage_adjusted = False
-        
-        if required_leverage < self.min_leverage:
-            # Force to minimum leverage
-            required_leverage = self.min_leverage
-            position_size_usdt = account_balance * required_leverage
-            leverage_adjusted = True
-            logger.debug(f"Leverage increased to minimum: {required_leverage}x")
-        
-        elif required_leverage > self.max_leverage:
-            # Cap at maximum leverage
-            position_size_usdt = account_balance * self.max_leverage
-            required_leverage = self.max_leverage
-            leverage_adjusted = True
-            logger.debug(f"Leverage capped at maximum: {required_leverage}x")
-        
-        # Apply max position size limit (25% cap for compounding)
-        max_position_size = account_balance * (self.max_position_percent / 100)
-        
-        if position_size_usdt > max_position_size:
-            logger.info(
-                f"Position size capped: ${position_size_usdt:.2f} → ${max_position_size:.2f} "
-                f"({self.max_position_percent}% of balance)"
-            )
-            position_size_usdt = max_position_size
-            # Recalculate leverage with capped size
-            required_leverage = position_size_usdt / account_balance
-            leverage_adjusted = True
-        
         # Position size in base currency (coins)
         position_size_coins = position_size_usdt / entry_price
+        leverage_adjusted = False  # No adjustment needed
+        
         
         return {
             'position_size_usdt': round(position_size_usdt, 2),

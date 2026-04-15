@@ -52,6 +52,7 @@ class DailySessionManager:
         self.daily_pnl = 0.0
         self.trades_today = 0
         self.is_trading_suspended = False
+        self.consecutive_losses = 0  # 4-loss circuit breaker
         
         # Session history
         self.sessions = []
@@ -73,6 +74,7 @@ class DailySessionManager:
         self.daily_pnl = 0.0
         self.trades_today = 0
         self.is_trading_suspended = False
+        self.consecutive_losses = 0  # Reset counter
         
         logger.info(
             f"New session started: "
@@ -129,6 +131,26 @@ class DailySessionManager:
         self.current_balance = new_balance
         self.daily_pnl = new_balance - self.session_start_balance
         
+        # Track consecutive losses for 4-loss circuit breaker
+        if new_balance < self.current_balance:
+            # Loss occurred
+            self.consecutive_losses += 1
+            logger.info(f"Loss recorded. Consecutive losses: {self.consecutive_losses}/4")
+            
+            # Check 4-loss circuit breaker
+            if self.consecutive_losses >= 4:
+                self.is_trading_suspended = True
+                logger.warning(
+                    f"🚨 CIRCUIT BREAKER! 4 consecutive losses. "
+                    f"Total DD: {abs(self.daily_pnl):.2f} ({abs(self.daily_pnl/self.session_start_balance*100):.2f}%)"
+                )
+        elif new_balance > self.current_balance:
+            # Win occurred - reset counter
+            if self.consecutive_losses > 0:
+                logger.info(f"Win! Resetting consecutive loss counter from {self.consecutive_losses} to 0")
+            self.consecutive_losses = 0
+        
+        
         # Check if daily loss limit hit
         self._check_daily_loss_limit()
     
@@ -141,6 +163,7 @@ class DailySessionManager:
         if self.daily_pnl >= 0:
             # Profit or breakeven - no limit
             self.is_trading_suspended = False
+            self.consecutive_losses = 0  # Reset counter
             return
         
         # Calculate daily loss percentage
@@ -169,7 +192,7 @@ class DailySessionManager:
         # Check if suspended
         if self.is_trading_suspended:
             next_reset = self._get_next_reset_time()
-            return False, f"Daily loss limit hit. Trading resumes at {self._format_datetime(next_reset)}"
+            return False, f"Circuit breaker triggered. Trading resumes at {self._format_datetime(next_reset)}"
         
         return True, ""
     
