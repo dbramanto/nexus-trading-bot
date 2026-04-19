@@ -1,0 +1,25 @@
+# Environment
+.env
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Data — jangan di-commit ke git
+data/shadow_logs/
+data/trade_logs/
+data/ml/
+data/historical/
+data/sessions/
+data/nexus_state.json
+
+# Logs
+logs/
+
+# Backups
+backups/
+*.bak
+
+# Temp
+/tmp/
+*.log
