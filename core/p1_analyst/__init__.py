@@ -26,6 +26,7 @@ from core.p1_analyst.context.fear_greed_index import FearGreedIndex
 from core.p1_analyst.orderflow.cvd_analyzer import CVDAnalyzer
 from core.p1_analyst.orderflow.orderbook_imbalance import OrderBookImbalance
 from core.p1_analyst.context.spike_classifier import SpikeClassifier
+from core.p1_analyst.context.heiken_ashi import HeikenAshiCalculator
 
 
 def build_indicator_manager() -> IndicatorManager:
@@ -65,5 +66,6 @@ def build_indicator_manager() -> IndicatorManager:
 
     # Context
     mgr.register(SpikeClassifier())
+    mgr.register(HeikenAshiCalculator())
 
     return mgr

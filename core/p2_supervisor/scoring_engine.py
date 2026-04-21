@@ -492,6 +492,12 @@ class ScoringEngine:
                 else modules.get("fear_greed_index", {}).get("fng_value", 50) > 65
             ),
             "volume": lambda: modules.get("basic_indicators", {}).get("volume_ratio", 0) >= 1.0,
+            "ha_direction": lambda: (
+                modules.get("heiken_ashi", {}).get("ha_direction") == "BULLISH"
+                if bias == "BULLISH"
+                else modules.get("heiken_ashi", {}).get("ha_direction") == "BEARISH"
+            ),
+            "ha_strength": lambda: modules.get("heiken_ashi", {}).get("ha_strength") in ("STRONG", "MODERATE"),
         }
 
         agree = 0

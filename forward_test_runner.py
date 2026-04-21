@@ -64,7 +64,7 @@ class NexusForwardTest:
         ]
         summary = self.p1.get_module_summary()
         logger.info(f"P1: {len(summary['active'])} active, {len(summary['placeholder'])} placeholder")
-        logger.info(f"Threshold={self.config.scoring.valid_threshold} | Balance=${self.config.trading.initial_balance}")
+        logger.info(f"Threshold={self.config.scoring.weak_threshold} (weak) / {self.config.scoring.valid_threshold} (valid) | Balance=${self.config.trading.initial_balance}")
 
     def _load_state(self):
         try:

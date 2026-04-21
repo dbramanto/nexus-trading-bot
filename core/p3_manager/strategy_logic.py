@@ -50,6 +50,42 @@ class StrategyLogic:
         if bias == "BULLISH": action = "LONG"
         elif bias == "BEARISH": action = "SHORT"
         else: return self._wait("No clear bias", score, grade, threshold)
+
+        # HA + PA Entry Trigger — konfirmasi sebelum entry
+        ha = p1_snapshot.get("heiken_ashi", {})
+        cp = p1_snapshot.get("candle_pattern", {})
+        ha_dir = ha.get("ha_direction", "NEUTRAL")
+        ha_str = ha.get("ha_strength", "WEAK")
+        candle = cp.get("primary_pattern", "")
+        candle_str = cp.get("pattern_strength", 0) or 0
+
+        # HA berlawanan dengan bias — reject
+        if ha_dir != "NEUTRAL" and ha_dir != bias:
+            return self._wait(
+                f"HA {ha_dir} berlawanan dengan bias {bias}",
+                score, grade, threshold
+            )
+
+        # HA NEUTRAL dan WEAK — tidak ada konfirmasi
+        if ha_dir == "NEUTRAL" and ha_str == "WEAK":
+            return self._wait(
+                "HA NEUTRAL — tidak ada konfirmasi arah",
+                score, grade, threshold
+            )
+
+        # PA berlawanan kuat — reject
+        bearish_reversal = ["BEARISH_ENGULFING", "SHOOTING_STAR", "BEARISH_PIN_BAR"]
+        bullish_reversal = ["BULLISH_ENGULFING", "HAMMER", "BULLISH_PIN_BAR"]
+        if bias == "BULLISH" and candle in bearish_reversal and candle_str >= 3:
+            return self._wait(
+                f"PA berlawanan kuat: {candle} strength={candle_str}",
+                score, grade, threshold
+            )
+        if bias == "BEARISH" and candle in bullish_reversal and candle_str >= 3:
+            return self._wait(
+                f"PA berlawanan kuat: {candle} strength={candle_str}",
+                score, grade, threshold
+            )
         size_multiplier = self.config.get_position_size_multiplier(grade)
         return {
             "action": action,
