@@ -217,7 +217,7 @@ class NexusForwardTest:
 
         # SL/TP calculation
         atr_val = mods.get("basic_indicators", {}).get("atr_value") or 0
-        sl_mult, tp_mult = 1.5, 4.5
+        sl_mult, tp_mult = 3.0, 9.0
         direction = bias if bias != "NEUTRAL" else "N/A"
         if action != "WAIT" and atr_val > 0:
             if bias == "BULLISH":
