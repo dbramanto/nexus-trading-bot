@@ -25,6 +25,20 @@ class StrategyLogic:
             return self._wait(f"Grade NO_TRADE — tidak memenuhi syarat minimum", score, grade, threshold)
         if score < threshold:
             return self._wait(f"Score {score} below threshold {threshold}", score, grade, threshold)
+
+        # Fix 1: Block trade di RANGING regime
+        regime = context_package.get("regime", "UNKNOWN")
+        if regime == "RANGING":
+            return self._wait(f"Regime RANGING — tidak trading direktional", score, grade, threshold)
+
+        # Fix 2: Require CHoCH untuk BEARISH signal
+        bias = context_package.get("bias", "NEUTRAL")
+        if bias == "BEARISH":
+            p1_snap = context_package.get("p1_snapshot", {})
+            mss = p1_snap.get("mss_detector", {})
+            choch = mss.get("choch_detected", False)
+            if not choch:
+                return self._wait(f"BEARISH tanpa CHoCH terkonfirmasi — struktur tidak cukup kuat", score, grade, threshold)
         if bias == "NEUTRAL":
             if grade == "PREMIUM":
                 grade = "VALID"

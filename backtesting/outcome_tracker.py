@@ -5,6 +5,9 @@ Fetch candle data setelah entry, cek apakah hit TP atau SL.
 Output: labeled_trades.csv untuk ML training.
 """
 import json
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import os
 import pandas as pd
 import time
@@ -174,10 +177,14 @@ if __name__ == "__main__":
     client = BinanceClientWrapper(testnet=False)
     os.makedirs("data/ml", exist_ok=True)
 
-    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-    today = datetime.now().strftime("%Y-%m-%d")
+    # Proses semua shadow log yang ada
+    log_dir = "data/shadow_logs"
+    all_dates = sorted([
+        f[:10] for f in os.listdir(log_dir)
+        if f.endswith(".jsonl")
+    ])
 
-    for date in [yesterday, today]:
+    for date in all_dates:
         log_file = f"data/shadow_logs/{date}.jsonl"
         output_csv = "data/ml/labeled_trades.csv"
         logger.info(f"Processing {log_file}...")
