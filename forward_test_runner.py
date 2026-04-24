@@ -332,6 +332,76 @@ class NexusForwardTest:
         }
 
         # Log shadow
+        # Hypothesis signal — kombinasi modul yang selaras berdasarkan feature importance
+        ha_data = mods.get("heiken_ashi", {})
+        cp_data = mods.get("candle_pattern", {})
+        bb_data = mods.get("bollinger_bands", {})
+        mss_d2 = mods.get("mss_detector", {})
+        mom_d2 = mods.get("momentum_classifier", {})
+        pd_data = mods.get("premium_discount", {})
+
+        # Hipotesis BULLISH — semua kondisi wajib + minimal 1 pendukung
+        hyp_bull_required = (
+            mss_d2.get("choch_detected", False) and
+            mss_d2.get("mss_structure") == "BULLISH" and
+            mom_d2.get("momentum_direction") == "BULLISH" and
+            pd_data.get("price_zone") == "DISCOUNT"
+        )
+        hyp_bull_support = (
+            cp_data.get("primary_pattern") == "BULLISH_MARUBOZU" or
+            bb_data.get("bb_position") in ("lower_half", "BELOW_LOWER")
+        )
+        hypothesis_bull = hyp_bull_required and hyp_bull_support
+
+        # Hipotesis BEARISH — mirror dari BULLISH dengan CHoCH required
+        hyp_bear_required = (
+            mss_d2.get("choch_detected", False) and
+            mss_d2.get("mss_structure") == "BEARISH" and
+            mom_d2.get("momentum_direction") == "BEARISH" and
+            pd_data.get("price_zone") == "PREMIUM"
+        )
+        hyp_bear_support = (
+            cp_data.get("primary_pattern") == "BEARISH_MARUBOZU" or
+            bb_data.get("bb_position") in ("upper_half", "ABOVE_UPPER")
+        )
+        hypothesis_bear = hyp_bear_required and hyp_bear_support
+
+        # Hypothesis signal
+        if hypothesis_bull:
+            hyp_signal = "LONG"
+        elif hypothesis_bear:
+            hyp_signal = "SHORT"
+        else:
+            hyp_signal = "WAIT"
+
+        # Berapa kondisi yang terpenuhi
+        hyp_bull_score = sum([
+            mss_d2.get("choch_detected", False),
+            mss_d2.get("mss_structure") == "BULLISH",
+            mom_d2.get("momentum_direction") == "BULLISH",
+            pd_data.get("price_zone") == "DISCOUNT",
+            cp_data.get("primary_pattern") == "BULLISH_MARUBOZU",
+            bb_data.get("bb_position") in ("lower_half", "BELOW_LOWER"),
+            ha_data.get("ha_direction") == "BULLISH",
+            ha_data.get("ha_strength") in ("STRONG", "MODERATE"),
+        ])
+        hyp_bear_score = sum([
+            mss_d2.get("choch_detected", False),
+            mss_d2.get("mss_structure") == "BEARISH",
+            mom_d2.get("momentum_direction") == "BEARISH",
+            pd_data.get("price_zone") == "PREMIUM",
+            cp_data.get("primary_pattern") == "BEARISH_MARUBOZU",
+            bb_data.get("bb_position") in ("upper_half", "ABOVE_UPPER"),
+            ha_data.get("ha_direction") == "BEARISH",
+            ha_data.get("ha_strength") in ("STRONG", "MODERATE"),
+        ])
+
+        ml_features["hypothesis_signal"] = hyp_signal
+        ml_features["hypothesis_bull_score"] = hyp_bull_score
+        ml_features["hypothesis_bear_score"] = hyp_bear_score
+        ml_features["hypothesis_bull_required"] = hyp_bull_required
+        ml_features["hypothesis_bear_required"] = hyp_bear_required
+
         self.p4_log.log_shadow(
             symbol=symbol, direction=direction, potential_entry=price,
             potential_sl=pot_sl, potential_tp=pot_tp, potential_lot=pot_lot,
