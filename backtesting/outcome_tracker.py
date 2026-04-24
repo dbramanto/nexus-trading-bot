@@ -198,3 +198,18 @@ if __name__ == "__main__":
         print(f"Total records: {len(df)}")
         if "outcome" in df.columns:
             print(df["outcome"].value_counts().to_string())
+
+        # Kirim daily report ke Telegram
+        try:
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            from execution.telegram_notifier import TelegramNotifier
+            from core.p4_auditor.daily_report import generate_daily_report
+            tg = TelegramNotifier(enabled=True, mode_prefix="[SHADOW v2]")
+            generate_daily_report(
+                shadow_log_dir="data/shadow_logs",
+                ml_csv="data/ml/labeled_trades.csv",
+                telegram_notifier=tg
+            )
+            logger.info("Daily report sent to Telegram")
+        except Exception as e:
+            logger.error(f"Daily report failed: {e}")
