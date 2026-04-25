@@ -51,10 +51,12 @@ class NexusForwardTest:
         self.open_positions = {}
         self.open_positions_b = {}
         self.open_positions_c = {}
+        self.open_positions_long = {}
         self.cycle_count = 0
         self.total_signals = 0
         self.total_signals_b = 0
         self.total_signals_c = 0
+        self.total_signals_long = 0
         self.total_scans = 0
         self._state_file = "data/nexus_state.json"
         self._load_state()
@@ -74,9 +76,11 @@ class NexusForwardTest:
                 self.open_positions = state.get("open_positions", {})
                 self.open_positions_b = state.get("open_positions_b", {})
                 self.open_positions_c = state.get("open_positions_c", {})
+                self.open_positions_long = state.get("open_positions_long", {})
                 self.total_signals = state.get("total_signals", 0)
                 self.total_signals_b = state.get("total_signals_b", 0)
                 self.total_signals_c = state.get("total_signals_c", 0)
+                self.total_signals_long = state.get("total_signals_long", 0)
                 logger.info(f"State loaded: {len(self.open_positions)} open positions")
         except Exception as e:
             logger.warning(f"State load failed: {e}")
@@ -87,9 +91,11 @@ class NexusForwardTest:
                 "open_positions": self.open_positions,
                 "open_positions_b": self.open_positions_b,
                 "open_positions_c": self.open_positions_c,
+                "open_positions_long": self.open_positions_long,
                 "total_signals": self.total_signals,
                 "total_signals_b": self.total_signals_b,
                 "total_signals_c": self.total_signals_c,
+                "total_signals_long": self.total_signals_long,
                 "cycle_count": self.cycle_count,
                 "saved_at": datetime.now().isoformat()
             }
@@ -495,6 +501,29 @@ class NexusForwardTest:
             self.telegram.send(chr(10).join(c_lines))
             logger.info(f"[MODEL C] SIGNAL {symbol} score={mc.get('score',0)}")
 
+        # Log 3 — LONG only: hanya approve LONG, ignore SHORT
+        if action == "LONG" and symbol not in self.open_positions_long:
+            self.total_signals_long += 1
+            self.open_positions_long[symbol] = {
+                "action": "LONG", "direction": "BULLISH",
+                "entry": price, "sl": pot_sl, "tp": pot_tp,
+                "score": score, "grade": grade,
+                "reason": reason_str if action != "WAIT" else "long_only_filter",
+                "open_time": now.isoformat(),
+            }
+            long_lines = [
+                "[SHADOW L] ENTRY LONG (Long Only)",
+                "Symbol  : " + symbol,
+                "Entry   : " + str(round(price, 4)),
+                "SL      : " + str(pot_sl) + " (-" + str(sl_dist_pct) + "%)",
+                "TP      : " + str(pot_tp) + " (+" + str(tp_dist_pct) + "%)",
+                "Score   : " + str(score) + "/100 [" + grade + "]",
+                "Session : " + session + " | BTC: " + btc_trend,
+                "Time    : " + now.strftime("%H:%M:%S WIB"),
+            ]
+            self.telegram.send(chr(10).join(long_lines))
+            logger.info(f"[MODEL L] SIGNAL LONG {symbol} score={score} [{grade}]")
+
         return {
             "symbol": symbol, "action": action, "score": score,
             "grade": grade, "bias": bias,
@@ -535,7 +564,12 @@ class NexusForwardTest:
                 for sym in closed_a: del self.open_positions[sym]
                 for sym in closed_b: del self.open_positions_b[sym]
                 for sym in closed_c: del self.open_positions_c[sym]
-                if closed_a or closed_b or closed_c:
+                # Exit check LONG only
+                closed_l = self._check_exit(self.open_positions_long, "SHADOW L")
+                for sym in closed_l:
+                    del self.open_positions_long[sym]
+
+                if closed_a or closed_b or closed_c or closed_l:
                     self._save_state()
 
                 # Scan semua symbols
@@ -549,7 +583,7 @@ class NexusForwardTest:
 
                 signals = [r for r in results if r["action"] != "WAIT"]
                 penalized = [r for r in results if r["penalties"] > 0]
-                logger.info(f"Cycle {self.cycle_count} | Scanned={len(results)} Signal={len(signals)} Penalized={len(penalized)} TotalSignals={self.total_signals}")
+                logger.info(f"Cycle {self.cycle_count} | Scanned={len(results)} Signal={len(signals)} Penalized={len(penalized)} TotalSignals={self.total_signals} | B={self.total_signals_b} C={self.total_signals_c} L={self.total_signals_long}")
                 if signals:
                     for s in signals:
                         logger.info(f"  >> {s['symbol']} Score={s['score']} [{s['grade']}] {s['bias']}")
