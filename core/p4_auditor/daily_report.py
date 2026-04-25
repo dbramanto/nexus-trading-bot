@@ -99,7 +99,9 @@ def generate_daily_report(shadow_log_dir, ml_csv, telegram_notifier):
         lines += ["", "TOP REJECTION REASONS"]
         for reason, count in reject_reasons.most_common(4):
             pct = round(count / len(waits) * 100, 1) if waits else 0
-            lines.append(str(count) + "x (" + str(pct) + "%) " + reason)
+            # Truncate reason ke 35 karakter agar tidak terpotong di Telegram
+            reason_short = reason[:50] if len(reason) > 50 else reason
+            lines.append(str(count) + "x (" + str(pct) + "%) " + reason_short)
 
     # Top penalties
     if penalty_sources:

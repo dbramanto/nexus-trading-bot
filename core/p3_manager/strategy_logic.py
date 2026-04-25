@@ -22,14 +22,14 @@ class StrategyLogic:
         if circuit_breaker_active:
             return self._wait("Circuit breaker active", score, grade, threshold)
         if grade == "NO_TRADE":
-            return self._wait(f"Grade NO_TRADE — tidak memenuhi syarat minimum", score, grade, threshold)
+            return self._wait(f"Grade NO_TRADE — skip", score, grade, threshold)
         if score < threshold:
             return self._wait(f"Score {score} below threshold {threshold}", score, grade, threshold)
 
         # Fix 1: Block trade di RANGING regime
         regime = context_package.get("regime", "UNKNOWN")
         if regime == "RANGING":
-            return self._wait(f"Regime RANGING — tidak trading direktional", score, grade, threshold)
+            return self._wait(f"Regime RANGING — skip", score, grade, threshold)
 
         # Fix 1b: Block LONG di PREMIUM zone dan EQUILIBRIUM
         # Data: 10 trades PREMIUM = 0 WIN, 2 trades EQUILIBRIUM = 0 WIN
@@ -37,7 +37,7 @@ class StrategyLogic:
         price_zone = p1_snap.get("premium_discount", {}).get("price_zone", "UNKNOWN")
         if bias == "BULLISH" and price_zone in ("PREMIUM", "EQUILIBRIUM"):
             return self._wait(
-                f"LONG di {price_zone} zone — data 12 trades 0% WR",
+                "LONG di " + price_zone + " — skip",
                 score, grade, threshold
             )
 
@@ -48,7 +48,7 @@ class StrategyLogic:
             mss = p1_snap.get("mss_detector", {})
             choch = mss.get("choch_detected", False)
             if not choch:
-                return self._wait(f"BEARISH tanpa CHoCH terkonfirmasi — struktur tidak cukup kuat", score, grade, threshold)
+                return self._wait(f"BEARISH tanpa CHoCH — struktur lemah", score, grade, threshold)
         if bias == "NEUTRAL":
             if grade == "PREMIUM":
                 grade = "VALID"
@@ -93,7 +93,7 @@ class StrategyLogic:
         # HA NEUTRAL dan WEAK — tidak ada konfirmasi
         if ha_dir == "NEUTRAL" and ha_str == "WEAK":
             return self._wait(
-                "HA NEUTRAL — tidak ada konfirmasi arah",
+                "HA NEUTRAL — no confirmation",
                 score, grade, threshold
             )
 
