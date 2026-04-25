@@ -7,7 +7,6 @@ Output: labeled_trades.csv untuk ML training.
 import sys, os
 sys.path.insert(0, "/home/nexus/nexus_bot")
 import json
-import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import os
