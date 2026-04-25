@@ -19,7 +19,7 @@ class FVGDetector(BaseAnalyst):
     @property
     def min_bars_required(self): return 10
 
-    def __init__(self, min_gap_pct=0.15, max_lookback=30):
+    def __init__(self, min_gap_pct=0.30, max_lookback=30):
         self.min_gap_pct = min_gap_pct
         self.max_lookback = max_lookback
 

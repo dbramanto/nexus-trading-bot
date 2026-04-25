@@ -63,11 +63,19 @@ class OrderBlockDetector(BaseAnalyst):
         move = df.iloc[move_start:move_end]
         move_pct = ((move["close"].iloc[-1] - c["close"]) / c["close"]) * 100
         if move_pct < self.min_move_pct: return None
+        # Freshness check: apakah harga sudah pernah masuk ke zona OB?
+        ob_top = round(c["high"], 4)
+        ob_bottom = round(c["low"], 4)
+        future_candles = df.iloc[i+1:]
+        tested = any(
+            (row["low"] <= ob_top and row["high"] >= ob_bottom)
+            for _, row in future_candles.iterrows()
+        )
         return {
             "type": "BULLISH",
-            "top": round(c["high"], 4),
-            "bottom": round(c["low"], 4),
-            "fresh": True,
+            "top": ob_top,
+            "bottom": ob_bottom,
+            "fresh": not tested,
             "strength": round(move_pct, 2),
         }
 
@@ -81,11 +89,19 @@ class OrderBlockDetector(BaseAnalyst):
         move = df.iloc[move_start:move_end]
         move_pct = ((c["close"] - move["close"].iloc[-1]) / c["close"]) * 100
         if move_pct < self.min_move_pct: return None
+        # Freshness check: apakah harga sudah pernah masuk ke zona OB?
+        ob_top = round(c["high"], 4)
+        ob_bottom = round(c["low"], 4)
+        future_candles = df.iloc[i+1:]
+        tested = any(
+            (row["low"] <= ob_top and row["high"] >= ob_bottom)
+            for _, row in future_candles.iterrows()
+        )
         return {
             "type": "BEARISH",
-            "top": round(c["high"], 4),
-            "bottom": round(c["low"], 4),
-            "fresh": True,
+            "top": ob_top,
+            "bottom": ob_bottom,
+            "fresh": not tested,
             "strength": round(move_pct, 2),
         }
 
