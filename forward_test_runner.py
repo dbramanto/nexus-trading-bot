@@ -52,11 +52,13 @@ class NexusForwardTest:
         self.open_positions_b = {}
         self.open_positions_c = {}
         self.open_positions_long = {}
+        self.open_positions_top = {}
         self.cycle_count = 0
         self.total_signals = 0
         self.total_signals_b = 0
         self.total_signals_c = 0
         self.total_signals_long = 0
+        self.total_signals_top = 0
         self.total_scans = 0
         self._state_file = "data/nexus_state.json"
         self._load_state()
@@ -77,10 +79,12 @@ class NexusForwardTest:
                 self.open_positions_b = state.get("open_positions_b", {})
                 self.open_positions_c = state.get("open_positions_c", {})
                 self.open_positions_long = state.get("open_positions_long", {})
+                self.open_positions_top = state.get("open_positions_top", {})
                 self.total_signals = state.get("total_signals", 0)
                 self.total_signals_b = state.get("total_signals_b", 0)
                 self.total_signals_c = state.get("total_signals_c", 0)
                 self.total_signals_long = state.get("total_signals_long", 0)
+                self.total_signals_top = state.get("total_signals_top", 0)
                 logger.info(f"State loaded: {len(self.open_positions)} open positions")
         except Exception as e:
             logger.warning(f"State load failed: {e}")
@@ -92,10 +96,12 @@ class NexusForwardTest:
                 "open_positions_b": self.open_positions_b,
                 "open_positions_c": self.open_positions_c,
                 "open_positions_long": self.open_positions_long,
+                "open_positions_top": self.open_positions_top,
                 "total_signals": self.total_signals,
                 "total_signals_b": self.total_signals_b,
                 "total_signals_c": self.total_signals_c,
                 "total_signals_long": self.total_signals_long,
+                "total_signals_top": self.total_signals_top,
                 "cycle_count": self.cycle_count,
                 "saved_at": datetime.now().isoformat()
             }
@@ -112,6 +118,35 @@ class NexusForwardTest:
         except Exception as e:
             logger.error(f"Health check failed: {e}")
             return False
+
+    def _fetch_top_movers(self, min_change_pct=5.0, min_volume_usdt=50_000_000, top_n=10):
+        """Fetch top gainers dari Binance Futures."""
+        try:
+            tickers = self.client.client.futures_ticker()
+            candidates = []
+            stablecoins = {"USDC","BUSD","DAI","TUSD","USDP","FDUSD","USDD"}
+            for t in tickers:
+                sym = t["symbol"]
+                if not sym.endswith("USDT"):
+                    continue
+                base = sym.replace("USDT","")
+                if base in stablecoins:
+                    continue
+                change_pct = float(t.get("priceChangePercent", 0))
+                volume = float(t.get("quoteVolume", 0))
+                if change_pct >= min_change_pct and volume >= min_volume_usdt:
+                    candidates.append({
+                        "symbol": sym,
+                        "change_pct": change_pct,
+                        "volume": volume,
+                    })
+            candidates.sort(key=lambda x: x["change_pct"], reverse=True)
+            top = [c["symbol"] for c in candidates[:top_n]]
+            logger.info(f"Top movers: {top}")
+            return top, candidates[:top_n]
+        except Exception as e:
+            logger.error(f"Top mover fetch error: {e}")
+            return [], []
 
     def _fetch_df(self, symbol, interval="15m", limit=300):
         klines = self.client.get_futures_candles(symbol, interval, limit)
@@ -530,6 +565,79 @@ class NexusForwardTest:
             "penalties": len(penalties),
         }
 
+    def scan_symbol_top(self, symbol, change_pct, volume_24h):
+        """Scan symbol dari top mover list — LONG only."""
+        try:
+            df = self._fetch_df(symbol)
+            if df is None or len(df) < 100:
+                return None
+            for mod in self._orderflow_modules:
+                mod.set_context(symbol, self.client)
+            p1_rep = self.p1.run_all(df, self.config)
+            mods = p1_rep.get("modules", {})
+            cb_state = self.p4_cb.get_state_for_p2(symbol)
+            ctx = self.p2.score(p1_rep, cb_state)
+            dec = self.p3.evaluate(ctx, circuit_breaker_active=self.p4_cb.is_symbol_paused(symbol))
+
+            score = ctx["score"]
+            grade = ctx["grade"]
+            action = dec["action"]
+            bias = ctx["bias"]
+            price = df["close"].iloc[-1]
+
+            # Log T — hanya LONG
+            if action != "LONG":
+                return None
+            if symbol in self.open_positions_top:
+                return None
+
+            # Hitung SL/TP
+            atr_val = mods.get("basic_indicators", {}).get("atr_value") or 0
+            sl_mult, tp_mult = 3.0, 9.0
+            if atr_val > 0:
+                pot_sl = round(price - atr_val * sl_mult, 4)
+                pot_tp = round(price + atr_val * tp_mult, 4)
+                sl_dist_pct = round(abs(price - pot_sl) / price * 100, 4)
+                tp_dist_pct = round(abs(pot_tp - price) / price * 100, 4)
+            else:
+                pot_sl = pot_tp = sl_dist_pct = tp_dist_pct = 0
+
+            now = datetime.now()
+            hour = now.hour
+            session = "ASIA" if 6 <= hour < 14 else "LONDON" if 14 <= hour < 20 else "NEWYORK" if hour >= 20 or hour < 2 else "OVERLAP"
+
+            self.total_signals_top += 1
+            self.open_positions_top[symbol] = {
+                "action": "LONG", "direction": "BULLISH",
+                "entry": price, "sl": pot_sl, "tp": pot_tp,
+                "score": score, "grade": grade,
+                "change_pct": change_pct,
+                "volume_24h": volume_24h,
+                "open_time": now.isoformat(),
+            }
+            self._save_state()
+
+            tier = ctx.get("tier_breakdown", {})
+            top_lines = [
+                "[SHADOW T] ENTRY LONG (Top Mover)",
+                "Symbol   : " + symbol,
+                "24h Gain : +" + str(round(change_pct, 2)) + "%",
+                "Volume   : $" + str(round(volume_24h/1_000_000, 1)) + "M",
+                "Entry    : " + str(round(price, 4)),
+                "SL       : " + str(pot_sl) + " (-" + str(sl_dist_pct) + "%)",
+                "TP       : " + str(pot_tp) + " (+" + str(tp_dist_pct) + "%)",
+                "Score    : " + str(score) + "/100 [" + grade + "]",
+                "T0/T1/T2 : " + str(tier.get("t0",0)) + "/" + str(tier.get("t1",0)) + "/" + str(tier.get("t2",0)),
+                "Session  : " + session,
+                "Time     : " + now.strftime("%H:%M:%S WIB"),
+            ]
+            self.telegram.send(chr(10).join(top_lines))
+            logger.info(f"[MODEL T] SIGNAL LONG {symbol} +{change_pct:.1f}% vol=${volume_24h/1e6:.0f}M score={score}")
+            return {"symbol": symbol, "action": "LONG", "score": score}
+        except Exception as e:
+            logger.error(f"scan_symbol_top error {symbol}: {e}")
+            return None
+
     def run(self):
         if not self._health_check():
             logger.error("Aborting: health check failed")
@@ -569,7 +677,12 @@ class NexusForwardTest:
                 for sym in closed_l:
                     del self.open_positions_long[sym]
 
-                if closed_a or closed_b or closed_c or closed_l:
+                # Exit check Top Mover
+                closed_t = self._check_exit(self.open_positions_top, "SHADOW T")
+                for sym in closed_t:
+                    del self.open_positions_top[sym]
+
+                if closed_a or closed_b or closed_c or closed_l or closed_t:
                     self._save_state()
 
                 # Scan semua symbols
@@ -581,9 +694,26 @@ class NexusForwardTest:
                     except Exception as e:
                         logger.error(f"Error {symbol}: {e}")
 
+                # Log T — Top Mover scan
+                try:
+                    top_symbols, top_data = self._fetch_top_movers(
+                        min_change_pct=5.0,
+                        min_volume_usdt=50_000_000,
+                        top_n=10
+                    )
+                    for i, symbol in enumerate(top_symbols):
+                        try:
+                            change_pct = top_data[i]["change_pct"]
+                            volume = top_data[i]["volume"]
+                            r = self.scan_symbol_top(symbol, change_pct, volume)
+                        except Exception as e:
+                            logger.error(f"Top mover scan error {symbol}: {e}")
+                except Exception as e:
+                    logger.error(f"Top mover fetch error: {e}")
+
                 signals = [r for r in results if r["action"] != "WAIT"]
                 penalized = [r for r in results if r["penalties"] > 0]
-                logger.info(f"Cycle {self.cycle_count} | Scanned={len(results)} Signal={len(signals)} Penalized={len(penalized)} TotalSignals={self.total_signals} | B={self.total_signals_b} C={self.total_signals_c} L={self.total_signals_long}")
+                logger.info(f"Cycle {self.cycle_count} | Scanned={len(results)} Signal={len(signals)} Penalized={len(penalized)} TotalSignals={self.total_signals} | B={self.total_signals_b} C={self.total_signals_c} L={self.total_signals_long} T={self.total_signals_top}")
                 if signals:
                     for s in signals:
                         logger.info(f"  >> {s['symbol']} Score={s['score']} [{s['grade']}] {s['bias']}")
