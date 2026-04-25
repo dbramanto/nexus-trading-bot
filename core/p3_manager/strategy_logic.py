@@ -31,6 +31,16 @@ class StrategyLogic:
         if regime == "RANGING":
             return self._wait(f"Regime RANGING — tidak trading direktional", score, grade, threshold)
 
+        # Fix 1b: Block LONG di PREMIUM zone dan EQUILIBRIUM
+        # Data: 10 trades PREMIUM = 0 WIN, 2 trades EQUILIBRIUM = 0 WIN
+        p1_snap = context_package.get("p1_snapshot", {})
+        price_zone = p1_snap.get("premium_discount", {}).get("price_zone", "UNKNOWN")
+        if bias == "BULLISH" and price_zone in ("PREMIUM", "EQUILIBRIUM"):
+            return self._wait(
+                f"LONG di {price_zone} zone — data 12 trades 0% WR",
+                score, grade, threshold
+            )
+
         # Fix 2: Require CHoCH untuk BEARISH signal
         bias = context_package.get("bias", "NEUTRAL")
         if bias == "BEARISH":
