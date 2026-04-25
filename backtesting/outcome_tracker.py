@@ -4,6 +4,8 @@ Jalan setiap hari untuk label shadow log dengan outcome aktual.
 Fetch candle data setelah entry, cek apakah hit TP atau SL.
 Output: labeled_trades.csv untuk ML training.
 """
+import sys, os
+sys.path.insert(0, "/home/nexus/nexus_bot")
 import json
 import sys
 import os
@@ -172,7 +174,6 @@ def process_shadow_log(log_file, client, output_csv):
 
 
 if __name__ == "__main__":
-    import sys
     sys.path.insert(0, ".")
     client = BinanceClientWrapper(testnet=False)
     os.makedirs("data/ml", exist_ok=True)
