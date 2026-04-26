@@ -78,7 +78,7 @@ class BacktestConfig:
 
 
 # ============================================================================
-# STRATEGY RULES — Config-Driven Filters (NEW)
+# STRATEGY RULES — Config-Driven Filters
 # ============================================================================
 
 class StrategyRules:
@@ -124,10 +124,30 @@ class NexusConfig:
         self.indicators = IndicatorConfig()
         self.trading = TradingConfig()
         self.backtest = BacktestConfig()
-        self.rules = StrategyRules()  # NEW: Add strategy rules
+        self.rules = StrategyRules()
         
         if os.path.exists(config_path):
             self._load_from_yaml(config_path)
+
+    def get_effective_threshold(self, modifier: int = 0) -> int:
+        """Calculate adaptive threshold based on modifier."""
+        if not self.scoring.adaptive_enabled:
+            return self.scoring.weak_threshold
+        clamped = max(self.scoring.adaptive_modifier_min, min(self.scoring.adaptive_modifier_max, modifier))
+        eff = self.scoring.weak_threshold + clamped
+        eff = max(self.scoring.adaptive_threshold_floor, eff)
+        eff = min(self.scoring.adaptive_threshold_ceiling, eff)
+        return eff
+
+    def get_position_size_multiplier(self, grade: str) -> float:
+        """Get position size multiplier based on grade."""
+        if grade == "PREMIUM": 
+            return self.risk.size_premium_pct
+        if grade == "VALID": 
+            return self.risk.size_valid_pct
+        if grade == "WEAK": 
+            return self.risk.size_weak_pct
+        return 0.3
 
     def _load_from_yaml(self, path: str):
         with open(path, "r") as f:

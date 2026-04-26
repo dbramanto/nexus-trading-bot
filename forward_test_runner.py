@@ -36,6 +36,88 @@ from execution.binance_client import BinanceClientWrapper
 from execution.telegram_notifier import TelegramNotifier
 
 
+
+# ============================================================================
+# STARTUP VALIDATION — Fail Fast on Integration Issues
+# ============================================================================
+
+def validate_system_integrity():
+    """
+    Pre-flight checks before starting NEXUS.
+    Prevents runtime crashes from missing methods/attributes.
+    """
+    import sys
+    from config.strategy_config import NexusConfig
+    
+    errors = []
+    
+    print("🔍 Running system validation...")
+    
+    # 1. Config methods exist
+    config = NexusConfig()
+    required_methods = ['get_effective_threshold', 'get_position_size_multiplier', '_load_from_yaml']
+    
+    for method in required_methods:
+        if not hasattr(config, method):
+            errors.append(f"❌ Config missing method: {method}()")
+        else:
+            print(f"  ✓ config.{method}()")
+    
+    # 2. Config attributes exist
+    required_attrs = ['scoring', 'risk', 'rules', 'trading', 'indicators']
+    
+    for attr in required_attrs:
+        if not hasattr(config, attr):
+            errors.append(f"❌ Config missing attribute: {attr}")
+        else:
+            print(f"  ✓ config.{attr}")
+    
+    # 3. StrategyRules loaded
+    if hasattr(config, 'rules'):
+        if not hasattr(config.rules, 'PATTERN_FILTER_ENABLED'):
+            errors.append(f"❌ StrategyRules not properly loaded")
+        else:
+            print(f"  ✓ StrategyRules.PATTERN_FILTER_ENABLED = {config.rules.PATTERN_FILTER_ENABLED}")
+            print(f"  ✓ StrategyRules.APPROVED_PATTERNS = {config.rules.APPROVED_PATTERNS}")
+    
+    # 4. Critical directories exist
+    import os
+    required_dirs = ['data/shadow_logs', 'data/ml', 'logs', 'config']
+    
+    for dir_path in required_dirs:
+        if not os.path.exists(dir_path):
+            errors.append(f"❌ Missing directory: {dir_path}")
+        else:
+            print(f"  ✓ {dir_path}/")
+    
+    # 5. P1 can initialize
+    try:
+        from core.p1_analyst import build_indicator_manager
+        mgr = build_indicator_manager()
+        # Just check it built successfully
+        print(f"  ✓ P1 IndicatorManager initialized")
+    except Exception as e:
+        errors.append(f"❌ P1 initialization failed: {e}")
+    
+    # Report results
+    print()
+    if errors:
+        print("="*70)
+        print("❌ SYSTEM VALIDATION FAILED")
+        print("="*70)
+        for err in errors:
+            print(f"  {err}")
+        print()
+        print("Fix these issues before starting NEXUS.")
+        print("="*70)
+        sys.exit(1)
+    else:
+        print("="*70)
+        print("✅ SYSTEM VALIDATION PASSED — Starting NEXUS")
+        print("="*70)
+        print()
+
+
 class NexusForwardTest:
 
     def __init__(self):
@@ -734,5 +816,10 @@ class NexusForwardTest:
 
 
 if __name__ == "__main__":
+    # Run pre-flight validation
+    validate_system_integrity()
+    
+    # Start NEXUS
+
     bot = NexusForwardTest()
     bot.run()
