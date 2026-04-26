@@ -21,18 +21,6 @@ class StrategyLogic:
         downgrade_reason = None
         if circuit_breaker_active:
             return self._wait("Circuit breaker active", score, grade, threshold)
-        # === MARUBOZU ENFORCEMENT ===
-        # Data-driven: 77% win coverage (10/13 wins had BULLISH_MARUBOZU)
-        # Validated on 58 simulated trades (22.4% → ~40-50% WR expected)
-        p1_snap = context_package.get("p1_snapshot", {})
-        pattern = p1_snap.get("candle_pattern", {}).get("primary_pattern")
-        
-        if pattern != "BULLISH_MARUBOZU":
-            return self._wait(
-                f"Pattern {pattern} — require BULLISH_MARUBOZU (validated 77% win coverage)",
-                score, grade, threshold
-            )
-
         if grade == "NO_TRADE":
             return self._wait(f"Grade NO_TRADE — skip", score, grade, threshold)
         if score < threshold:

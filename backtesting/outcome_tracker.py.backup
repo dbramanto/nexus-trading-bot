@@ -5,16 +5,16 @@ Fetch candle data setelah entry, cek apakah hit TP atau SL.
 Output: labeled_trades.csv untuk ML training.
 """
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, "/home/nexus/nexus_bot")
 import json
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import os
 import pandas as pd
 import time
 import logging
 from datetime import datetime, timedelta
 from execution.binance_client import BinanceClientWrapper
-
-import warnings
-warnings.filterwarnings('ignore', category=FutureWarning)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 logger = logging.getLogger("OutcomeTracker")
@@ -39,8 +39,8 @@ def fetch_candles_after(client, symbol, entry_timestamp, limit=100):
             })
         return pd.DataFrame(rows)
     except Exception as e:
-        logger.warning(f"Skipping invalid symbol {symbol}: {e}")
-        return None  # Return None for invalid symbols
+        logger.error(f"Fetch error {symbol}: {e}")
+        return pd.DataFrame()
 
 
 def determine_outcome(df, entry_price, sl_price, tp_price, direction):
@@ -184,37 +184,9 @@ def process_shadow_log(log_file, client, output_csv):
         df_out = pd.DataFrame(labeled)
         if os.path.exists(output_csv):
             df_existing = pd.read_csv(output_csv)
-            # Safe concatenation to avoid FutureWarning
-            if not df_existing.empty:
-                df_out = pd.concat([df_existing, df_out], ignore_index=True)
-            # else: df_out already contains new data
+            df_out = pd.concat([df_existing, df_out], ignore_index=True)
         df_out.to_csv(output_csv, index=False)
         logger.info(f"Saved {len(labeled)} labeled trades to {output_csv}")
-
-    # Update shadow log to prevent re-processing
-    if labeled:
-        labeled_ts_symbols = {(row['timestamp'], row['symbol']) for row in labeled}
-        
-        updated_entries = []
-        for entry in entries:
-            ts = entry.get('timestamp')
-            sym = entry.get('symbol')
-            
-            # Mark as labeled if processed
-            if (ts, sym) in labeled_ts_symbols:
-                # Find the outcome from labeled data
-                matching = [r for r in labeled if r['timestamp'] == ts and r['symbol'] == sym]
-                if matching:
-                    entry['outcome'] = matching[0]['outcome']
-            
-            updated_entries.append(entry)
-        
-        # Write back to shadow log
-        with open(log_file, 'w') as f:
-            for entry in updated_entries:
-                f.write(json.dumps(entry) + '\n')
-        
-        logger.info(f"Updated {len(labeled)} entries in shadow log to prevent re-processing")
 
     return processed
 
