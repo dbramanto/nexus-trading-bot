@@ -76,6 +76,47 @@ class BacktestConfig:
     walk_forward_test_months: int = 1
     is_backtest: bool = False
 
+
+# ============================================================================
+# STRATEGY RULES — Config-Driven Filters (NEW)
+# ============================================================================
+
+class StrategyRules:
+    """
+    Strategy-level decision rules for P3 Manager.
+    
+    Philosophy: Strategy rules live in config, not code.
+    Benefits: Fast iteration, A/B testing, emergency rollback.
+    """
+    
+    # === PATTERN FILTER ===
+    # Data-driven validation: BULLISH_MARUBOZU = 77% win coverage (10/13 wins)
+    PATTERN_FILTER_ENABLED = True
+    APPROVED_PATTERNS = [
+        "BULLISH_MARUBOZU",
+        # Future expansion (add after validation):
+        # "BULLISH_ENGULFING",
+        # "BULLISH_PIN_BAR",
+    ]
+    
+    # === MSS FILTER ===
+    MSS_FILTER_ENABLED = False
+    APPROVED_MSS = ["BULLISH"]
+    REJECTED_MSS = ["RANGING", "UNDEFINED"]
+    
+    # === ZONE FILTER ===
+    ZONE_FILTER_ENABLED = False
+    REJECTED_ZONES = ["PREMIUM"]
+    
+    # === MOMENTUM FILTER ===
+    MOMENTUM_FILTER_ENABLED = False
+    REJECTED_MOMENTUM = ["BEARISH"]
+    
+    # === BB POSITION FILTER ===
+    BB_FILTER_ENABLED = False
+    REJECTED_BB_POSITIONS = ["upper_half"]
+
+
 class NexusConfig:
     def __init__(self, config_path: str = "config/settings.yaml"):
         self.scoring = ScoringConfig()
@@ -83,6 +124,8 @@ class NexusConfig:
         self.indicators = IndicatorConfig()
         self.trading = TradingConfig()
         self.backtest = BacktestConfig()
+        self.rules = StrategyRules()  # NEW: Add strategy rules
+        
         if os.path.exists(config_path):
             self._load_from_yaml(config_path)
 
@@ -91,64 +134,32 @@ class NexusConfig:
             raw = yaml.safe_load(f)
         if not raw:
             return
+        
+        # Scoring
         s = raw.get("scoring", {})
         t = s.get("thresholds", {})
         if t:
             self.scoring.premium_threshold = t.get("premium", self.scoring.premium_threshold)
             self.scoring.valid_threshold = t.get("valid", self.scoring.valid_threshold)
             self.scoring.weak_threshold = t.get("weak", self.scoring.weak_threshold)
-        ms = s.get("min_entry_score")
-        if ms is not None:
-            self.scoring.weak_threshold = ms
+        
+        # Risk
         self.risk.risk_per_trade_percent = raw.get("risk_per_trade_percent", self.risk.risk_per_trade_percent)
         self.risk.max_consecutive_losses = raw.get("max_consecutive_losses", self.risk.max_consecutive_losses)
         self.risk.max_positions = raw.get("max_positions", self.risk.max_positions)
+        
+        # Trading
+        self.trading.initial_balance = raw.get("initial_balance", self.trading.initial_balance)
+        
+        # Position management
         pm = raw.get("position_management", {})
         if pm:
             sl = pm.get("stop_loss", {})
-            self.risk.sl_method = sl.get("method", self.risk.sl_method)
-            self.risk.sl_buffer_percent = sl.get("buffer_percent", self.risk.sl_buffer_percent)
+            if sl:
+                self.risk.sl_method = sl.get("method", self.risk.sl_method)
+                self.risk.sl_buffer_percent = sl.get("buffer_percent", self.risk.sl_buffer_percent)
+            
             tp = pm.get("take_profit", {})
-            self.risk.tp_risk_reward_ratio = tp.get("risk_reward_ratio", self.risk.tp_risk_reward_ratio)
-            ts = pm.get("trailing_stop", {})
-            self.risk.trailing_trigger_percent = ts.get("trigger_percent", self.risk.trailing_trigger_percent)
-            self.risk.trailing_trail_percent = ts.get("trail_percent", self.risk.trailing_trail_percent)
-        ind = raw.get("indicators", {})
-        tfs = ind.get("timeframes", {})
-        if tfs:
-            self.indicators.primary_tf = tfs.get("primary", self.indicators.primary_tf)
-            self.indicators.confirmation_tf = tfs.get("confirmation", self.indicators.confirmation_tf)
-            self.indicators.higher_tf = tfs.get("higher", self.indicators.higher_tf)
-        tr = raw.get("trading", {})
-        self.trading.mode = tr.get("mode", self.trading.mode)
-        p = tr.get("paper_trading", {})
-        if p:
-            self.trading.initial_balance = p.get("initial_balance", self.trading.initial_balance)
-        u = tr.get("universe", {})
-        if u:
-            self.trading.top_coins = u.get("top_coins", self.trading.top_coins)
-            self.trading.min_volume_usd = u.get("min_volume_usd", self.trading.min_volume_usd)
-
-    def get_effective_threshold(self, modifier: int = 0) -> int:
-        if not self.scoring.adaptive_enabled:
-            return self.scoring.weak_threshold
-        clamped = max(self.scoring.adaptive_modifier_min, min(self.scoring.adaptive_modifier_max, modifier))
-        eff = self.scoring.weak_threshold + clamped
-        eff = max(self.scoring.adaptive_threshold_floor, eff)
-        eff = min(self.scoring.adaptive_threshold_ceiling, eff)
-        return eff
-
-    def get_position_size_multiplier(self, grade: str) -> float:
-        if grade == "PREMIUM": return self.risk.size_premium_pct
-        elif grade == "VALID": return self.risk.size_valid_pct
-        elif grade == "WEAK": return self.risk.size_weak_pct
-        return 0.0
-
-    def to_dict(self) -> dict:
-        return {
-            "scoring": asdict(self.scoring),
-            "risk": asdict(self.risk),
-            "indicators": asdict(self.indicators),
-            "trading": asdict(self.trading),
-            "backtest": asdict(self.backtest),
-        }
+            if tp:
+                self.risk.tp_method = tp.get("method", self.risk.tp_method)
+                self.risk.tp_risk_reward_ratio = tp.get("risk_reward_ratio", self.risk.tp_risk_reward_ratio)
