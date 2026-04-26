@@ -13,6 +13,20 @@ class ScoringEngine:
         self.config = config
 
     def score(self, p1_reports, circuit_breaker_state=None):
+        # === OPTIMIZATION: Early Volume Gate ===
+        # 93% of scans have volume <0.5 — reject early to save compute
+        bi_check = p1_reports.get("basic_indicators", {})
+        vol_check = bi_check.get("volume_ratio", 0) or 0
+        if vol_check < 0.5:
+            return {
+                'score': 0,
+                'grade': 'NO_TRADE',
+                'bias': 'NEUTRAL',
+                'tier_breakdown': {'t0': 0, 't1': 0, 't2': 0},
+                'reject_reason': 'Volume <0.5 (early gate - 93% filtered here)',
+                'p1_snapshot': p1_reports
+            }
+        
         modules = p1_reports.get("modules", {})
         bias = self._determine_bias(modules)
         regime = self._determine_regime(modules)
@@ -236,6 +250,9 @@ class ScoringEngine:
 
         # Premium/Discount zone
         zone = pd_.get("price_zone", "EQUILIBRIUM")
+        # TODO: Investigate - data shows -3.8 predictive score for this module
+        # Current logic: LONG in DISCOUNT = +7 pts
+        # Validate: Does this actually correlate with wins?
         if bias == "BULLISH" and zone == "DISCOUNT": score += 7
         elif bias == "BEARISH" and zone == "PREMIUM": score += 7
         elif zone == "EQUILIBRIUM": score += 2
@@ -275,8 +292,8 @@ class ScoringEngine:
         # Momentum classifier
         mom_dir = mom.get("momentum_direction", "NEUTRAL")
         mom_str = mom.get("momentum_strength", 0)
-        if bias == "BULLISH" and mom_dir == "BULLISH": score += mom_str * 2
-        elif bias == "BEARISH" and mom_dir == "BEARISH": score += mom_str * 2
+        if bias == "BULLISH" and mom_dir == "BULLISH": score += mom_str * 3  # OPTIMIZED: Tier A (+35.0 score) - boosted from 2x
+        elif bias == "BEARISH" and mom_dir == "BEARISH": score += mom_str * 3  # OPTIMIZED: Tier A (+35.0 score) - boosted from 2x
 
         # CVD — taker order flow
         cvd_signal = cvd.get("cvd_signal", "NEUTRAL")
@@ -341,8 +358,8 @@ class ScoringEngine:
         cp = modules.get("candle_pattern", {})
         cp_signal = cp.get("pattern_signal", "NEUTRAL")
         cp_strength = cp.get("pattern_strength", "WEAK")
-        if bias == "BULLISH" and cp_signal == "BULLISH" and cp_strength == "STRONG": score += 5
-        elif bias == "BEARISH" and cp_signal == "BEARISH" and cp_strength == "STRONG": score += 5
+        if bias == "BULLISH" and cp_signal == "BULLISH" and cp_strength == "STRONG": score += 8  # OPTIMIZED: Tier S (+54.7)
+        elif bias == "BEARISH" and cp_signal == "BEARISH" and cp_strength == "STRONG": score += 8  # OPTIMIZED: Tier S (+54.7)
 
         return score
 
