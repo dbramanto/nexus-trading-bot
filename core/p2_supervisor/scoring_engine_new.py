@@ -13,9 +13,21 @@ class ScoringEngine:
         self.config = config
 
     def score(self, p1_reports, circuit_breaker_state=None):
-        # OPTIMIZATION NOTE: Volume gate removed - let T0 scoring handle volume naturally
-        # Low volume will still get low scores via T0 context scoring
-        modules = p1_reports
+        # === OPTIMIZATION: Early Volume Gate ===
+        # 93% of scans have volume <0.5 — reject early to save compute
+        bi_check = p1_reports.get("basic_indicators", {})
+        vol_check = bi_check.get("volume_ratio", 0) or 0
+        if vol_check < 0.5:
+            return {
+                'score': 0,
+                'grade': 'NO_TRADE',
+                'bias': 'NEUTRAL',
+                'tier_breakdown': {'t0': 0, 't1': 0, 't2': 0},
+                'reject_reason': 'Volume <0.5 (early gate - 93% filtered here)',
+                'p1_snapshot': p1_reports
+            }
+        
+        modules = p1_reports.get("modules", {})
         bias = self._determine_bias(modules)
         regime = self._determine_regime(modules)
         t0 = min(self._score_t0_context(modules, regime), self.config.scoring.tier_0_max)

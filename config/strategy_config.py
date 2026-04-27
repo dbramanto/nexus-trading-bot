@@ -183,3 +183,32 @@ class NexusConfig:
             if tp:
                 self.risk.tp_method = tp.get("method", self.risk.tp_method)
                 self.risk.tp_risk_reward_ratio = tp.get("risk_reward_ratio", self.risk.tp_risk_reward_ratio)
+
+# === TOP GAINER RESEARCH MODE ===
+
+class TopGainerMode:
+    """
+    Configuration for top gainer research mode
+    Paper trading on meme pumps for fast data collection
+    """
+    
+    enabled = True  # ✅ ENABLED for paper testing
+    
+    # Symbol selection
+    top_n = 10
+    min_24h_change = 15.0  # %
+    max_24h_change = 150.0  # Filter extreme pumps
+    min_volume_usd = 10_000_000
+    refresh_interval_hours = 4
+    
+    # Risk parameters (paper mode)
+    position_size_usd = 100
+    leverage = 2
+    stop_loss_pct = 10.0
+    take_profit_pct = 25.0
+    max_hold_hours = 4
+    
+    # Data collection
+    log_all_scans = True
+    track_orderflow = True
+

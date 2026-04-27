@@ -13,9 +13,7 @@ class ScoringEngine:
         self.config = config
 
     def score(self, p1_reports, circuit_breaker_state=None):
-        # OPTIMIZATION NOTE: Volume gate removed - let T0 scoring handle volume naturally
-        # Low volume will still get low scores via T0 context scoring
-        modules = p1_reports
+        modules = p1_reports.get("modules", {})
         bias = self._determine_bias(modules)
         regime = self._determine_regime(modules)
         t0 = min(self._score_t0_context(modules, regime), self.config.scoring.tier_0_max)
@@ -238,9 +236,6 @@ class ScoringEngine:
 
         # Premium/Discount zone
         zone = pd_.get("price_zone", "EQUILIBRIUM")
-        # TODO: Investigate - data shows -3.8 predictive score for this module
-        # Current logic: LONG in DISCOUNT = +7 pts
-        # Validate: Does this actually correlate with wins?
         if bias == "BULLISH" and zone == "DISCOUNT": score += 7
         elif bias == "BEARISH" and zone == "PREMIUM": score += 7
         elif zone == "EQUILIBRIUM": score += 2
@@ -280,8 +275,8 @@ class ScoringEngine:
         # Momentum classifier
         mom_dir = mom.get("momentum_direction", "NEUTRAL")
         mom_str = mom.get("momentum_strength", 0)
-        if bias == "BULLISH" and mom_dir == "BULLISH": score += mom_str * 3  # OPTIMIZED: Tier A (+35.0 score) - boosted from 2x
-        elif bias == "BEARISH" and mom_dir == "BEARISH": score += mom_str * 3  # OPTIMIZED: Tier A (+35.0 score) - boosted from 2x
+        if bias == "BULLISH" and mom_dir == "BULLISH": score += mom_str * 2
+        elif bias == "BEARISH" and mom_dir == "BEARISH": score += mom_str * 2
 
         # CVD — taker order flow
         cvd_signal = cvd.get("cvd_signal", "NEUTRAL")
@@ -346,8 +341,8 @@ class ScoringEngine:
         cp = modules.get("candle_pattern", {})
         cp_signal = cp.get("pattern_signal", "NEUTRAL")
         cp_strength = cp.get("pattern_strength", "WEAK")
-        if bias == "BULLISH" and cp_signal == "BULLISH" and cp_strength == "STRONG": score += 8  # OPTIMIZED: Tier S (+54.7)
-        elif bias == "BEARISH" and cp_signal == "BEARISH" and cp_strength == "STRONG": score += 8  # OPTIMIZED: Tier S (+54.7)
+        if bias == "BULLISH" and cp_signal == "BULLISH" and cp_strength == "STRONG": score += 5
+        elif bias == "BEARISH" and cp_signal == "BEARISH" and cp_strength == "STRONG": score += 5
 
         return score
 
