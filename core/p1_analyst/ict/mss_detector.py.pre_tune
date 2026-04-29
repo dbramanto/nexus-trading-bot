@@ -28,7 +28,7 @@ class MSSDetector(BaseAnalyst):
     @property
     def min_bars_required(self): return 30
 
-    def __init__(self, swing_lookback=3, min_swing_pct=0.2):
+    def __init__(self, swing_lookback=5, min_swing_pct=0.3):
         self.swing_lookback = swing_lookback
         self.min_swing_pct = min_swing_pct
 

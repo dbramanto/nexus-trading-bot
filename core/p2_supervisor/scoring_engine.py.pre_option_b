@@ -16,7 +16,6 @@ class ScoringEngine:
         # OPTIMIZATION NOTE: Volume gate removed - let T0 scoring handle volume naturally
         # Low volume will still get low scores via T0 context scoring
         modules = p1_reports
-        logger.info("TRACE 4: P2 modules keys=%s, has_symbol=%s" % (list(modules.keys())[:5], 'symbol' in modules))
         bias = self._determine_bias(modules)
         regime = self._determine_regime(modules)
         t0 = min(self._score_t0_context(modules, regime), self.config.scoring.tier_0_max)
@@ -91,7 +90,6 @@ class ScoringEngine:
         elif bos_dir == "BEARISH" and not choch_dir: votes["BEARISH"] += 2
 
         # 2. Momentum Classifier — pengganti Ichimoku, lag rendah
-        logger.info("VOTE MSS: CHoCH=%s BOS=%s | BULLISH=%d BEARISH=%d" % (choch_dir, bos_dir, votes["BULLISH"], votes["BEARISH"]))
         mom = modules.get("momentum_classifier", {})
         mom_dir = mom.get("momentum_direction", "NEUTRAL")
         mom_str = mom.get("momentum_strength", 0)
@@ -101,7 +99,6 @@ class ScoringEngine:
         if rejection == "BEARISH_REJECTION": votes["BEARISH"] += 1
         elif rejection == "BULLISH_REJECTION": votes["BULLISH"] += 1
 
-        logger.info("VOTE MOMENTUM: dir=%s str=%d rej=%s | BULLISH=%d BEARISH=%d" % (mom_dir, mom_str, rejection, votes["BULLISH"], votes["BEARISH"]))
         # 3. Open Interest — crypto-native confirmation
         oi = modules.get("open_interest", {})
         oi_bias = oi.get("oi_bias", "NEUTRAL")
@@ -168,9 +165,8 @@ class ScoringEngine:
         elif fng_bias == "BEARISH": votes["BEARISH"] += min(fng_strength, 2)
 
         # Threshold: >= 4 votes untuk declare bias
-        if votes["BULLISH"] >= 2: return "BULLISH"  # OPTION B: 4→2
-        if votes["BEARISH"] >= 2: return "BEARISH"  # OPTION B: 4→2
-        logger.info("BIAS VOTING [%s] | BULLISH=%s BEARISH=%s → NEUTRAL" % (modules.get("symbol", "UNK"), votes["BULLISH"], votes["BEARISH"]))
+        if votes["BULLISH"] >= 4: return "BULLISH"
+        if votes["BEARISH"] >= 4: return "BEARISH"
         return "NEUTRAL"
 
     def _determine_regime(self, modules):
@@ -548,11 +544,8 @@ class ScoringEngine:
     def _build_p1_snapshot(self, modules):
         snap = {}
         for name, rep in modules.items():
-            # Skip non-dict values (like symbol string)
-            if not isinstance(rep, dict): continue
             if rep.get("skipped") or rep.get("error"): continue
             snap[name] = {k: v for k, v in rep.items()
                 if k not in ("module","category","is_implemented","error","skipped")
                 and not isinstance(v, (list, dict))}
         return snap
-

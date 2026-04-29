@@ -555,4 +555,12 @@ class ScoringEngine:
                 if k not in ("module","category","is_implemented","error","skipped")
                 and not isinstance(v, (list, dict))}
         return snap
-
+        snap = {}
+        for name, rep in modules.items():
+        # Skip non-dict values (like symbol string)
+        if not isinstance(rep, dict): continue
+        if rep.get("skipped") or rep.get("error"): continue
+            snap[name] = {k: v for k, v in rep.items()
+                if k not in ("module","category","is_implemented","error","skipped")
+                and not isinstance(v, (list, dict))}
+        return snap

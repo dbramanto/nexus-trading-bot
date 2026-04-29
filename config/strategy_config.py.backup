@@ -6,9 +6,9 @@ from dataclasses import dataclass, asdict
 
 @dataclass
 class ScoringConfig:
-    premium_threshold: int = 80
-    valid_threshold: int = 50
-    weak_threshold: int = 35
+    premium_threshold: int = 90
+    valid_threshold: int = 70
+    weak_threshold: int = 55
     no_trade_threshold: int = 0
     tier_0_max: int = 20
     tier_1_max: int = 50
@@ -91,11 +91,12 @@ class StrategyRules:
     
     # === PATTERN FILTER ===
     # Data-driven validation: BULLISH_MARUBOZU = 77% win coverage (10/13 wins)
-    PATTERN_FILTER_ENABLED = False
+    PATTERN_FILTER_ENABLED = True
     APPROVED_PATTERNS = [
         "BULLISH_MARUBOZU",
-        "BULLISH_ENGULFING",
-        "BULLISH_PIN_BAR",
+        # Future expansion (add after validation):
+        # "BULLISH_ENGULFING",
+        # "BULLISH_PIN_BAR",
     ]
     
     # === MSS FILTER ===

@@ -160,10 +160,13 @@ class DualModeRunner:
                 df = self._fetch_df(symbol, "15m", 100)
                 
                 # 2. P1 analyze ONCE (expensive!)
-                p1_rep = self.p1.run_all(df, self.config)
+                p1_rep = self.p1.run_all(df, self.config, symbol=symbol)
+                # Inject symbol for P2 context
+                if "basic_indicators" not in p1_rep: p1_rep["basic_indicators"] = {}
+                p1_rep["basic_indicators"]["symbol"] = symbol
                 
                 # 3. P2 score ONCE
-                ctx = self.p2.score(p1_rep, circuit_breaker_state=None)
+                ctx = self.p2.score(p1_rep)
                 
                 # 4. P3 evaluate ONCE
                 dec = self.p3.evaluate(ctx, circuit_breaker_active=False)
@@ -240,7 +243,9 @@ class DualModeRunner:
                         )
             
             except Exception as e:
+                import traceback
                 logger.error(f"Error processing {symbol}: {e}")
+                logger.error(traceback.format_exc())
                 continue
         
         # Stats

@@ -24,9 +24,12 @@ class IndicatorManager:
         status = "ACTIVE" if module.is_implemented else "PLACEHOLDER"
         logger.info(f"P1 registered: {module.name} [{module.category}] - {status}")
 
-    def run_all(self, df: pd.DataFrame, config: Any = None) -> Dict[str, Any]:
+    def run_all(self, df: pd.DataFrame, config: Any = None, symbol: str = None) -> Dict[str, Any]:
         start_time = time.time()
+        logger.info("TRACE 2: P1.run_all received symbol=%s" % symbol)
         reports = {}
+        reports["symbol"] = symbol if symbol else "UNKNOWN"
+        logger.info("TRACE 3: P1 stored symbol=%s in reports" % reports.get("symbol"))
         active_count = 0
         skipped_count = 0
         errored_count = 0
@@ -48,7 +51,8 @@ class IndicatorManager:
                 "skipped_modules": skipped_count,
                 "errored_modules": errored_count,
                 "scan_time_ms": round(scan_time_ms, 1)
-            }
+            },
+            "symbol": reports.get("symbol", "UNKNOWN")
         }
 
     def get_active_modules(self) -> List[str]:

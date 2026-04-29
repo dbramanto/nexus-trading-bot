@@ -82,7 +82,6 @@ class StrategyLogic:
         if mom_str >= 3 and mom_dir != "NEUTRAL" and mom_dir != bias:
             return self._wait(f"Kontradiksi: bias {bias} tapi momentum {mom_dir} strength={mom_str}", score, grade, threshold)
 
-        logger.info(f"P3 ACCEPT | Action={action} Score={score:.1f} Grade={grade} Bias={bias}")
         if bias == "BULLISH": action = "LONG"
         elif bias == "BEARISH": action = "SHORT"
         else: return self._wait("No clear bias", score, grade, threshold)
@@ -136,10 +135,7 @@ class StrategyLogic:
         }
 
     def _wait(self, reason, score, grade, threshold):
-        # Log rejection
-        logger.info(f"P3 REJECT | Reason: {reason} | Score={score:.1f} Grade={grade}")
         return {
-            "action": "NO_TRADE",
             "action": "WAIT",
             "grade": grade,
             "original_grade": grade,
