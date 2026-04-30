@@ -1,9 +1,9 @@
 scoring:
   min_entry_score: 55
   thresholds:
-    premium: 90
-    valid: 70
-    weak: 55
+    premium: 80
+    valid: 50
+    weak: 35
     no_trade: 0
 
 risk_per_trade_percent: 2.5

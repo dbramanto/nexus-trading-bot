@@ -372,12 +372,14 @@ class ScoringEngine:
             total -= 30
             penalties.append({"source": "extreme_funding", "value": -30})
         zone = pd_.get("price_zone", "EQUILIBRIUM")
-        if bias == "BULLISH" and zone == "PREMIUM":
-            total -= 50
-            penalties.append({"source": "wrong_zone_long_in_premium", "value": -50})
-        elif bias == "BEARISH" and zone == "DISCOUNT":
-            total -= 50
-            penalties.append({"source": "wrong_zone_short_in_discount", "value": -50})
+        # DISABLED FOR CRYPTO: Premium/discount based on short-term range
+        # Crypto trends, not mean-reverts. Use funding_rate for real premium instead.
+        # if bias == "BULLISH" and zone == "PREMIUM":
+        #     total -= 50
+        #     penalties.append({"source": "wrong_zone_long_in_premium", "value": -50})
+        # elif bias == "BEARISH" and zone == "DISCOUNT":
+        #     total -= 50
+        #     penalties.append({"source": "wrong_zone_short_in_discount", "value": -50})
         brk_detected = brk.get("breakout_detected", False)
         brk_dir = brk.get("breakout_direction")
         vol_confirmed = brk.get("volume_confirmed", False)

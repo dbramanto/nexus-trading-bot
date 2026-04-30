@@ -42,15 +42,17 @@ class StrategyLogic:
 #         if regime == "RANGING":
 #             return self._wait(f"Regime RANGING — skip", score, grade, threshold)
 
-        # Fix 1b: Block LONG di PREMIUM zone dan EQUILIBRIUM
-        # Data: 10 trades PREMIUM = 0 WIN, 2 trades EQUILIBRIUM = 0 WIN
-        p1_snap = context_package.get("p1_snapshot", {})
-        price_zone = p1_snap.get("premium_discount", {}).get("price_zone", "UNKNOWN")
-        if bias == "BULLISH" and price_zone in ("PREMIUM", "EQUILIBRIUM"):
-            return self._wait(
-                "LONG di " + price_zone + " — skip",
-                score, grade, threshold
-            )
+        # DISABLED FOR CRYPTO: Premium/discount blocks
+        # Original data (0 WIN) was in ranging market - not applicable to trending crypto
+        # Crypto momentum continues through "premium" zones
+        # Use funding_rate for real premium/discount instead
+        # p1_snap = context_package.get("p1_snapshot", {})
+        # price_zone = p1_snap.get("premium_discount", {}).get("price_zone", "UNKNOWN")
+        # if bias == "BULLISH" and price_zone in ("PREMIUM", "EQUILIBRIUM"):
+        #     return self._wait(
+                # "LONG di " + price_zone + " — skip",
+                # score, grade, threshold
+            # )
 
         # Fix 2: Require CHoCH untuk BEARISH signal
         bias = context_package.get("bias", "NEUTRAL")
@@ -75,17 +77,22 @@ class StrategyLogic:
         vol_ratio = p1_snapshot.get("basic_indicators", {}).get("volume_ratio", 1.0) or 1.0
 
         # Volume terlalu rendah — tidak reliable
-        if vol_ratio < 0.2:
+        if vol_ratio < 0.05:  # Crypto-adjusted: 5% minimum (was 20%)
             return self._wait(f"Volume terlalu rendah ({vol_ratio:.2f}x) — setup tidak reliable", score, grade, threshold)
 
         # Momentum kuat berlawanan dengan bias — kontradiksi serius
         if mom_str >= 3 and mom_dir != "NEUTRAL" and mom_dir != bias:
             return self._wait(f"Kontradiksi: bias {bias} tapi momentum {mom_dir} strength={mom_str}", score, grade, threshold)
 
+        # Determine action BEFORE logging
+        if bias == "BULLISH": 
+            action = "LONG"
+        elif bias == "BEARISH": 
+            action = "SHORT"
+        else: 
+            return self._wait("No clear bias", score, grade, threshold)
+        
         logger.info(f"P3 ACCEPT | Action={action} Score={score:.1f} Grade={grade} Bias={bias}")
-        if bias == "BULLISH": action = "LONG"
-        elif bias == "BEARISH": action = "SHORT"
-        else: return self._wait("No clear bias", score, grade, threshold)
 
         # HA + PA Entry Trigger — konfirmasi sebelum entry
         ha = p1_snapshot.get("heiken_ashi", {})
