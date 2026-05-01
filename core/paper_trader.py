@@ -23,8 +23,6 @@ class PaperTrader:
         self.balance = initial_balance
         self.open_positions = {}
         self.closed_trades = []
-        
-        logger.info(f"📄 Paper Trader initialized: ${initial_balance:,.2f} balance")
     
     def open_position(self, signal: Dict) -> Optional[Dict]:
         """
@@ -70,6 +68,22 @@ class PaperTrader:
         
         self.open_positions[symbol] = trade
         
+        # Send entry notification
+        try:
+            notifier = TelegramNotifier()
+            msg = (
+                f"🟢 *ENTRY*\n\n"
+                f"Symbol: {symbol}\n"
+                f"Side: {trade['side']}\n"
+                f"Entry: ${trade['entry_price']:.4f}\n"
+                f"TP: ${trade['take_profit']:.4f}\n"
+                f"SL: ${trade['stop_loss']:.4f}\n"
+                f"Score: {trade['p2_score']:.1f}"
+            )
+            notifier.send(msg)
+        except Exception as e:
+            logger.warning(f"Entry notification failed: {e}")
+        
         logger.info(
             f"📄 OPEN {trade['side']} {symbol} @ ${trade['entry_price']:.4f} | "
             f"SL: ${trade['stop_loss']:.4f} | TP: ${trade['take_profit']:.4f} | "
@@ -80,37 +94,41 @@ class PaperTrader:
     
     def check_exits(self, current_prices: Dict[str, float], max_hold_hours: int = 4):
         """
-        Check all open positions for exit conditions
+        Check exit conditions for all open positions
         
         Args:
-            current_prices: Dict of {symbol: current_price}
-            max_hold_hours: Maximum hold time in hours
+            current_prices: Dict of symbol -> current price
+            max_hold_hours: Maximum hold time before force exit
         """
         
-        for symbol in list(self.open_positions.keys()):
-            trade = self.open_positions[symbol]
-            current_price = current_prices.get(symbol)
-            
-            if current_price is None:
+        symbols_to_close = []
+        
+        for symbol, trade in self.open_positions.items():
+            if symbol not in current_prices:
                 continue
             
-            # Check stop loss / take profit
+            current_price = current_prices[symbol]
+            
+            # Check SL
             if trade['side'] == 'LONG':
                 if current_price <= trade['stop_loss']:
-                    self.close_position(symbol, current_price, 'SL_HIT')
+                    symbols_to_close.append((symbol, current_price, 'SL_HIT'))
                 elif current_price >= trade['take_profit']:
-                    self.close_position(symbol, current_price, 'TP_HIT')
-            
-            elif trade['side'] == 'SHORT':
+                    symbols_to_close.append((symbol, current_price, 'TP_HIT'))
+            else:  # SHORT
                 if current_price >= trade['stop_loss']:
-                    self.close_position(symbol, current_price, 'SL_HIT')
+                    symbols_to_close.append((symbol, current_price, 'SL_HIT'))
                 elif current_price <= trade['take_profit']:
-                    self.close_position(symbol, current_price, 'TP_HIT')
+                    symbols_to_close.append((symbol, current_price, 'TP_HIT'))
             
             # Check max hold time
-            hours_held = (datetime.now() - trade['entry_time']).total_seconds() / 3600
-            if hours_held >= max_hold_hours:
-                self.close_position(symbol, current_price, 'MAX_HOLD')
+            duration = (datetime.now() - trade['entry_time']).total_seconds() / 3600
+            if duration >= max_hold_hours:
+                symbols_to_close.append((symbol, current_price, 'MAX_HOLD'))
+        
+        # Close positions
+        for symbol, exit_price, reason in symbols_to_close:
+            self.close_position(symbol, exit_price, reason)
     
     def close_position(self, symbol: str, exit_price: float, reason: str) -> Dict:
         """
@@ -158,85 +176,49 @@ class PaperTrader:
         
         self.closed_trades.append(trade)
         
+        # Send exit notification
+        try:
+            notifier = TelegramNotifier()
+            emoji = "✅" if trade['outcome'] == "WIN" else "❌"
+            msg = (
+                f"{emoji} *EXIT*\n\n"
+                f"Symbol: {symbol}\n"
+                f"PnL: ${trade['pnl_usd']:+.2f}\n"
+                f"Outcome: {trade['outcome']}\n"
+                f"Reason: {reason}"
+            )
+            notifier.send(msg)
+        except Exception as e:
+            logger.warning(f"Exit notification failed: {e}")
+        
         # Log
         emoji = "✅" if pnl_usd > 0 else "❌"
         logger.info(
             f"📄 {emoji} CLOSE {symbol} @ ${exit_price:.4f} | {reason} | "
-            f"PnL: ${pnl_usd:+.2f} ({pnl_pct:+.1f}%) | "
-            f"Hold: {duration:.1f}h | Balance: ${self.balance:,.2f}"
+            f"PnL: ${pnl_usd:+.2f} ({pnl_pct:+.2f}%)"
         )
-        
-        # Save trade
-        self.save_trade(trade)
         
         return trade
     
-    def save_trade(self, trade: Dict):
-        """
-        Save closed trade to CSV
-        
-        Args:
-            trade: Closed trade dict
-        """
-        
-        output_file = 'data/paper_trades_top_gainers.csv'
-        
-        # Flatten for CSV
-        flat_trade = {
-            'symbol': trade['symbol'],
-            'side': trade['side'],
-            'entry_price': trade['entry_price'],
-            'exit_price': trade['exit_price'],
-            'entry_time': trade['entry_time'].isoformat(),
-            'exit_time': trade['exit_time'].isoformat(),
-            'exit_reason': trade['exit_reason'],
-            'size_usd': trade['size_usd'],
-            'leverage': trade['leverage'],
-            'stop_loss': trade['stop_loss'],
-            'take_profit': trade['take_profit'],
-            'pnl_usd': trade['pnl_usd'],
-            'pnl_pct': trade['pnl_pct'],
-            'outcome': trade['outcome'],
-            'hold_hours': trade['hold_hours'],
-            'p2_score': trade['p2_score'],
-            'p2_grade': trade['p2_grade'],
-        }
-        
-        # Append to CSV
-        df = pd.DataFrame([flat_trade])
-        
-        file_exists = os.path.exists(output_file)
-        df.to_csv(output_file, mode='a', header=not file_exists, index=False)
-    
     def get_stats(self) -> Dict:
-        """
-        Get paper trading statistics
-        
-        Returns:
-            Stats dict with WR, PnL, etc.
-        """
+        """Get trading statistics"""
         
         if not self.closed_trades:
             return {
                 'total_trades': 0,
-                'wins': 0,
-                'losses': 0,
-                'win_rate': 0,
-                'total_pnl': 0,
-                'balance': self.balance,
-                'roi': 0,
+                'win_rate': 0.0,
+                'total_pnl': 0.0,
+                'avg_win': 0.0,
+                'avg_loss': 0.0
             }
         
-        total = len(self.closed_trades)
-        wins = sum(1 for t in self.closed_trades if t['outcome'] == 'WIN')
-        total_pnl = sum(t['pnl_usd'] for t in self.closed_trades)
+        wins = [t for t in self.closed_trades if t['outcome'] == 'WIN']
+        losses = [t for t in self.closed_trades if t['outcome'] == 'LOSS']
         
         return {
-            'total_trades': total,
-            'wins': wins,
-            'losses': total - wins,
-            'win_rate': wins / total * 100,
-            'total_pnl': total_pnl,
-            'balance': self.balance,
-            'roi': (self.balance - self.initial_balance) / self.initial_balance * 100,
+            'total_trades': len(self.closed_trades),
+            'win_rate': (len(wins) / len(self.closed_trades)) * 100,
+            'total_pnl': sum(t['pnl_usd'] for t in self.closed_trades),
+            'avg_win': sum(t['pnl_usd'] for t in wins) / len(wins) if wins else 0,
+            'avg_loss': sum(t['pnl_usd'] for t in losses) / len(losses) if losses else 0
         }
