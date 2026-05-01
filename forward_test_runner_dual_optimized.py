@@ -49,19 +49,14 @@ class DualModeRunner:
         
         # MODE A symbols
         # MODE A DISABLED (zero trades in 68+ trades)
-        # self.stable_symbols = [
-            'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT',
-            'XRPUSDT', 'ADAUSDT', 'AVAXUSDT', 'DOTUSDT',
-            'MATICUSDT', 'LINKUSDT', 'UNIUSDT', 'ATOMUSDT',
-            'LTCUSDT', 'ARBUSDT'
-        # ]
+        self.stable_symbols = []  # MODE A DISABLED (zero activity)
         
         # MODE B symbols
         self.tg_scanner = TopGainerScanner()
         self.tg_symbols = []
         self.tg_last_refresh = None
         # Separate traders for fair A/B comparison
-        # self.stable_trader = PaperTrader(initial_balance=10000)  # MODE A DISABLED  # MODE A: Stable symbols
+        self.stable_trader = None  # MODE A DISABLED
         self.tg_trader = PaperTrader(initial_balance=10000)      # MODE B: Top gainers
         
         self.cycle_count = 0
@@ -147,16 +142,7 @@ class DualModeRunner:
         
         # Check exits for BOTH traders
         # MODE A: Stable symbols
-        if self.stable_trader.open_positions:
-            current_prices = {}
-            for sym in self.stable_trader.open_positions.keys():
-                try:
-                    klines = self.client.get_futures_candles(sym, "15m", 1)
-                    if klines:
-                        current_prices[sym] = float(klines[-1][4])
-                except:
-                    pass
-            self.stable_trader.check_exits(current_prices, self.tg_config.max_hold_hours)
+        # MODE A exit check disabled
         
         # MODE B: Top gainers
         if self.tg_trader.open_positions:
@@ -225,57 +211,7 @@ class DualModeRunner:
                     bias_reason={}
                 )
 
-                if symbol in self.stable_symbols:
-                    # Skip if position already open
-                    if symbol in self.stable_trader.open_positions:
-                        continue
-                    
-                    if action in ['LONG', 'SHORT']:
-                        stable_signals += 1
-                        
-                        # Calculate SL/TP (same as MODE B for fair comparison)
-                        sl_pct = self.tg_config.stop_loss_pct / 100
-                        tp_pct = self.tg_config.take_profit_pct / 100
-                        
-                        if action == 'LONG':
-                            sl = current_price * (1 - sl_pct)
-                            tp = current_price * (1 + tp_pct)
-                            bias = 'LONG'
-                        else:
-                            sl = current_price * (1 + sl_pct)
-                            tp = current_price * (1 - tp_pct)
-                            bias = 'SHORT'
-                        
-                        # Open paper position for MODE A
-                        signal = {
-                            'symbol': symbol,
-                            'bias': bias,
-                            'current_price': current_price,
-                            'sl_price': sl,
-                            'tp_price': tp,
-                            'position_size': self.tg_config.position_size_usd,
-                            'leverage': self.tg_config.leverage,
-                            'p1_snapshot': p1_rep.get('modules', {}),
-                            'score': score,
-                            'grade': grade,
-                        }
-                        
-                        self.stable_trader.open_position(signal)
-                        
-                        logger.info(f"  🔵 MODE A TRADE: {bias} {symbol} @ ${current_price:.4f} | Score={score:.1f} Grade={grade}")
-                        
-                        # Telegram notification
-                        self.telegram.send(
-                            f"🔵 *MODE A Paper Trade*\n\n"
-                            f"Action: OPEN {bias}\n"
-                            f"Symbol: {symbol}\n"
-                            f"Entry: ${current_price:.4f}\n"
-                            f"SL: ${sl:.4f} (-{self.tg_config.stop_loss_pct}%)\n"
-                            f"TP: ${tp:.4f} (+{self.tg_config.take_profit_pct}%)\n"
-                            f"Score: {score:.1f} | Grade: {grade}"
-                        )
-                
-                # === MODE B: If symbol in top gainers ===
+                # MODE A entry logic disabled
                 if symbol in self.tg_symbols:
                     # Skip if position already open
                     if symbol in self.tg_trader.open_positions:
@@ -331,13 +267,12 @@ class DualModeRunner:
                 continue
         
         # Stats
-        stable_stats = self.stable_trader.get_stats()
+        # stable_stats disabled
         tg_stats = self.tg_trader.get_stats()
         
         logger.info("")
         logger.info(f"✓ Cycle {self.cycle_count} complete:")
-        logger.info(f"  🔵 MODE A: {stable_signals} new | Open={len(self.stable_trader.open_positions)} Closed={stable_stats['total_trades']} WR={stable_stats['win_rate']:.1f}% PnL=${stable_stats['total_pnl']:+.2f}")
-        logger.info(f"  🟢 MODE B: {tg_signals} new | Open={len(self.tg_trader.open_positions)} Closed={tg_stats['total_trades']} WR={tg_stats['win_rate']:.1f}% PnL=${tg_stats['total_pnl']:+.2f}")
+        logger.info(f"  📊 TRADES: {tg_signals} new | Open={len(self.tg_trader.open_positions)} Closed={tg_stats['total_trades']} WR={tg_stats['win_rate']:.1f}% PnL=${tg_stats['total_pnl']:+.2f}")
         logger.info("="*80)
         
         # Hourly summary via Telegram
