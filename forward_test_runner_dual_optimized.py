@@ -48,19 +48,20 @@ class DualModeRunner:
         self.p4_log = TradeLogger()
         
         # MODE A symbols
-        self.stable_symbols = [
+        # MODE A DISABLED (zero trades in 68+ trades)
+        # self.stable_symbols = [
             'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT',
             'XRPUSDT', 'ADAUSDT', 'AVAXUSDT', 'DOTUSDT',
             'MATICUSDT', 'LINKUSDT', 'UNIUSDT', 'ATOMUSDT',
             'LTCUSDT', 'ARBUSDT'
-        ]
+        # ]
         
         # MODE B symbols
         self.tg_scanner = TopGainerScanner()
         self.tg_symbols = []
         self.tg_last_refresh = None
         # Separate traders for fair A/B comparison
-        self.stable_trader = PaperTrader(initial_balance=10000)  # MODE A: Stable symbols
+        # self.stable_trader = PaperTrader(initial_balance=10000)  # MODE A DISABLED  # MODE A: Stable symbols
         self.tg_trader = PaperTrader(initial_balance=10000)      # MODE B: Top gainers
         
         self.cycle_count = 0
@@ -137,7 +138,7 @@ class DualModeRunner:
         self.refresh_top_gainers()
         
         # === OPTIMIZATION: Get unique symbols ===
-        all_symbols = set(self.stable_symbols) | set(self.tg_symbols)
+        all_symbols = set(self.tg_symbols)  # MODE B only
         logger.info(f"📊 Scanning {len(all_symbols)} unique symbols (stable={len(self.stable_symbols)}, tg={len(self.tg_symbols)}, overlap={len(self.stable_symbols)+len(self.tg_symbols)-len(all_symbols)})")
         
         # Counters
