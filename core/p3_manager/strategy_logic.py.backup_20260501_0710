@@ -87,9 +87,8 @@ class StrategyLogic:
         # Determine action BEFORE logging
         if bias == "BULLISH": 
             action = "LONG"
-        elif bias == "BEARISH":
-            # SHORT DISABLED for data collection
-            return self._wait("SHORT disabled - LONG only", score, grade, threshold)
+        elif bias == "BEARISH": 
+            action = "SHORT"
         else: 
             return self._wait("No clear bias", score, grade, threshold)
         
