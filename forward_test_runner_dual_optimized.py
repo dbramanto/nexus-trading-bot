@@ -185,6 +185,14 @@ class DualModeRunner:
                 dec = self.p3.evaluate(ctx, circuit_breaker_active=False)
                 
                 # Extract common data
+
+                # === LONG-ONLY MODE (Strategic Decision) ===
+                # Skip BEARISH signals (SHORT not aligned with top gainer momentum)
+                # See STRATEGY_CLARITY.md for rationale
+                if ctx.get("bias") == "BEARISH":
+                    logger.info(f"⏭️  {symbol} SHORT skipped (LONG-only momentum strategy)")
+                    continue
+
                 action = dec.get('action', 'NO_TRADE')
                 score = ctx.get('score', 0)
                 grade = ctx.get('grade', 'NO_TRADE')
