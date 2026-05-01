@@ -240,8 +240,14 @@ class DualModeRunner:
                             'current_price': current_price,
                             'sl_price': sl,
                             'tp_price': tp,
-                            'position_size': self.tg_config.position_size_usd,
-                            'leverage': self.tg_config.leverage,
+                            # === ADAPTIVE POSITION SIZING ===
+                            # Conservative: 5% of balance, inverse leverage
+                            'current_balance': self.tg_trader.balance,
+                            'target_position_pct': 0.05,
+                            'target_position': self.tg_trader.balance * 0.05,
+                            'adaptive_leverage': 3 if score >= 70 else (2 if score >= 60 else 1),
+                            'position_size': self.tg_trader.balance * 0.05,
+                            'leverage': 3 if score >= 70 else (2 if score >= 60 else 1),
                             'p1_snapshot': p1_rep.get('modules', {}),
                             'score': score,
                             'grade': grade,
