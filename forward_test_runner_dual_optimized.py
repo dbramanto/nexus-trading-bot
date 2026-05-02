@@ -286,8 +286,8 @@ class DualModeRunner:
             self.telegram.send(
                 f"📈 *Hourly Summary (Cycle {self.cycle_count})*\n\n"
                 f"🔵 MODE A (Stable):\n"
-                f"  Open: {len(self.stable_trader.open_positions)} | Closed: {stable_stats['total_trades']}\n"
-                f"  WR: {stable_stats['win_rate']:.1f}% | PnL: ${stable_stats['total_pnl']:+.2f}\n\n"
+        # f"  Open: {len(self.stable_trader.open_positions)} | Closed: {stable_stats['total_trades']}\n"
+        # f"  WR: {stable_stats['win_rate']:.1f}% | PnL: ${stable_stats['total_pnl']:+.2f}\n\n"
                 f"🟢 MODE B (Gainers):\n"
                 f"  Open: {len(self.tg_trader.open_positions)} | Closed: {tg_stats['total_trades']}\n"
                 f"  WR: {tg_stats['win_rate']:.1f}% | PnL: ${tg_stats['total_pnl']:+.2f}"
