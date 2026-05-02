@@ -342,5 +342,5 @@ class NexusRunner:
             raise
 
 if __name__ == '__main__':
-    runner = DualModeRunner()
+    runner = NexusRunner()
     runner.run()
