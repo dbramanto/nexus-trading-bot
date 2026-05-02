@@ -1,5 +1,5 @@
 """
-NEXUS v2.0 - Dual Mode OPTIMIZED with Telegram Notifications
+NEXUS v2.0 - LONG-only Momentum Trading with Telegram Notifications
 Single data fetch, shared P1 processing
 """
 
@@ -31,7 +31,7 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-class DualModeRunner:
+class NexusRunner:
     """
     OPTIMIZED: Single data fetch, shared P1 processing
     """
@@ -41,38 +41,38 @@ class DualModeRunner:
         self.tg_config = TopGainerMode()
         
         self.client = BinanceClientWrapper(testnet=self.config.trading.api_testnet)
-        self.telegram = TelegramNotifier(enabled=True, mode_prefix="[DUAL MODE]")
+        self.telegram = TelegramNotifier(enabled=True, mode_prefix="[NEXUS]")
         self.p1 = build_indicator_manager()
         self.p2 = ScoringEngine(self.config)
         self.p3 = StrategyLogic(self.config)
         self.p4_log = TradeLogger()
         
-        # MODE A symbols
-        # MODE A DISABLED (zero trades in 68+ trades)
-        self.stable_symbols = []  # MODE A DISABLED (zero activity)
+        # Stable symbols (feature disabled)
+        # Stable trading disabled (zero trades in 68+ trades)
+        self.stable_symbols = []  # Stable trading disabled (zero activity)
         
-        # MODE B symbols
+        # Top gainer symbols
         self.tg_scanner = TopGainerScanner()
         self.tg_symbols = []
         self.tg_last_refresh = None
         # Separate traders for fair A/B comparison
-        self.stable_trader = None  # MODE A DISABLED
-        self.tg_trader = PaperTrader(initial_balance=10000)      # MODE B: Top gainers
+        self.stable_trader = None  # Stable trading disabled
+        self.tg_trader = PaperTrader(initial_balance=10000)      # Top Gainers: Top gainers
         
         self.cycle_count = 0
         
         logger.info("="*80)
         logger.info("NEXUS DUAL MODE INITIALIZED (OPTIMIZED)")
         logger.info("="*80)
-        logger.info(f"MODE A: {len(self.stable_symbols)} stable coins")
-        logger.info(f"MODE B: Top {self.tg_config.top_n} gainers (paper)")
+        logger.info(f"Stable: {len(self.stable_symbols)} stable coins")
+        logger.info(f"Top Gainers: Top {self.tg_config.top_n} gainers (paper)")
         logger.info("="*80)
         
         # Send startup notification
         self.telegram.send(
             "🚀 *NEXUS DUAL MODE STARTED*\n\n"
-            f"MODE A: {len(self.stable_symbols)} stable coins (shadow)\n"
-            f"MODE B: Top {self.tg_config.top_n} gainers (paper)\n"
+            f"Stable: {len(self.stable_symbols)} stable coins (shadow)\n"
+            f"Top Gainers: Top {self.tg_config.top_n} gainers (paper)\n"
             f"Cycle: Every 15 minutes\n"
             f"Deployed: {datetime.now().strftime('%Y-%m-%d %H:%M WIB')}"
         )
@@ -120,7 +120,7 @@ class DualModeRunner:
         1. Get unique symbols (stable + top gainers)
         2. Fetch data ONCE per symbol
         3. P1 analyze ONCE per symbol
-        4. Route to MODE A and/or MODE B
+        4. Route to Stable and/or Top Gainers
         """
         self.cycle_count += 1
         
@@ -133,7 +133,7 @@ class DualModeRunner:
         self.refresh_top_gainers()
         
         # === OPTIMIZATION: Get unique symbols ===
-        all_symbols = set(self.tg_symbols)  # MODE B only
+        all_symbols = set(self.tg_symbols)  # Top Gainers only
         logger.info(f"📊 Scanning {len(all_symbols)} unique symbols (stable={len(self.stable_symbols)}, tg={len(self.tg_symbols)}, overlap={len(self.stable_symbols)+len(self.tg_symbols)-len(all_symbols)})")
         
         # Counters
@@ -141,10 +141,10 @@ class DualModeRunner:
         tg_signals = 0
         
         # Check exits for BOTH traders
-        # MODE A: Stable symbols
-        # MODE A exit check disabled
+        # Stable: Stable symbols
+        # Stable exit check disabled
         
-        # MODE B: Top gainers
+        # Top Gainers: Top gainers
         if self.tg_trader.open_positions:
             current_prices = {}
             for sym in self.tg_trader.open_positions.keys():
@@ -185,7 +185,7 @@ class DualModeRunner:
                 grade = ctx.get('grade', 'NO_TRADE')
                 current_price = float(df.iloc[-1]['close'])
                 
-                # === MODE A: If symbol in stable list ===
+                # === Stable: If symbol in stable list ===
 
                 # === SHADOW LOGGING FOR ML ===
                 self.p4_log.log_shadow(
@@ -211,7 +211,7 @@ class DualModeRunner:
                     bias_reason={}
                 )
 
-                # MODE A entry logic disabled
+                # Stable entry logic disabled
                 if symbol in self.tg_symbols:
                     # Skip if position already open
                     if symbol in self.tg_trader.open_positions:
@@ -257,7 +257,7 @@ class DualModeRunner:
                         
                         # DISABLED - Telegram notification for paper trade
                         # self.telegram.send(
-                        # f"🚀 *MODE B Paper Trade*\n\n"
+                        # f"🚀 *Top Gainers Paper Trade*\n\n"
                         # f"Action: OPEN {bias}\n"
                         # f"Symbol: {symbol}\n"
                         # f"Entry: ${current_price:.4f}\n"
@@ -285,17 +285,15 @@ class DualModeRunner:
         if self.cycle_count % 4 == 0:  # Every 4 cycles = 1 hour
             self.telegram.send(
                 f"📈 *Hourly Summary (Cycle {self.cycle_count})*\n\n"
-                f"🔵 MODE A (Stable):\n"
-        # f"  Open: {len(self.stable_trader.open_positions)} | Closed: {stable_stats['total_trades']}\n"
-        # f"  WR: {stable_stats['win_rate']:.1f}% | PnL: ${stable_stats['total_pnl']:+.2f}\n\n"
-                f"🟢 MODE B (Gainers):\n"
+                f"🔵 Stable (Stable):\n"
+                f"🟢 Top Gainers (Gainers):\n"
                 f"  Open: {len(self.tg_trader.open_positions)} | Closed: {tg_stats['total_trades']}\n"
                 f"  WR: {tg_stats['win_rate']:.1f}% | PnL: ${tg_stats['total_pnl']:+.2f}"
             )
     
     def run(self):
         """Main loop"""
-        logger.info("🚀 Starting NEXUS Dual Mode (OPTIMIZED)...")
+        logger.info("🚀 Starting NEXUS NEXUS (OPTIMIZED)...")
         logger.info("Press Ctrl+C to stop")
         logger.info("")
         
