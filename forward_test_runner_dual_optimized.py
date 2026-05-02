@@ -255,16 +255,16 @@ class DualModeRunner:
                         
                         self.tg_trader.open_position(signal)
                         
-                        # Telegram notification for paper trade
-                        self.telegram.send(
-                            f"🚀 *MODE B Paper Trade*\n\n"
-                            f"Action: OPEN {bias}\n"
-                            f"Symbol: {symbol}\n"
-                            f"Entry: ${current_price:.4f}\n"
-                            f"SL: ${sl:.4f} (-{self.tg_config.stop_loss_pct}%)\n"
-                            f"TP: ${tp:.4f} (+{self.tg_config.take_profit_pct}%)\n"
-                            f"Score: {score:.1f} | Grade: {grade}"
-                        )
+                        # DISABLED - Telegram notification for paper trade
+                        # self.telegram.send(
+                        # f"🚀 *MODE B Paper Trade*\n\n"
+                        # f"Action: OPEN {bias}\n"
+                        # f"Symbol: {symbol}\n"
+                        # f"Entry: ${current_price:.4f}\n"
+                        # f"SL: ${sl:.4f} (-{self.tg_config.stop_loss_pct}%)\n"
+                        # f"TP: ${tp:.4f} (+{self.tg_config.take_profit_pct}%)\n"
+                        # f"Score: {score:.1f} | Grade: {grade}"
+                        # )
             
             except Exception as e:
                 import traceback
