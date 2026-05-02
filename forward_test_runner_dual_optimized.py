@@ -49,14 +49,14 @@ class NexusRunner:
         
         # Stable symbols (feature disabled)
         # Stable trading disabled (zero trades in 68+ trades)
-        self.stable_symbols = []  # Stable trading disabled (zero activity)
+# [LEGACY]         self.stable_symbols = []  # Stable trading disabled (zero activity)
         
         # Top gainer symbols
         self.tg_scanner = TopGainerScanner()
         self.tg_symbols = []
         self.tg_last_refresh = None
         # Separate traders for fair A/B comparison
-        self.stable_trader = None  # Stable trading disabled
+# [LEGACY]         self.stable_trader = None  # Stable trading disabled
         self.tg_trader = PaperTrader(initial_balance=10000)      # Top Gainers: Top gainers
         
         self.cycle_count = 0
@@ -64,14 +64,14 @@ class NexusRunner:
         logger.info("="*80)
         logger.info("NEXUS DUAL MODE INITIALIZED (OPTIMIZED)")
         logger.info("="*80)
-        logger.info(f"Stable: {len(self.stable_symbols)} stable coins")
+# [LEGACY]         logger.info(f"Stable: {len(self.stable_symbols)} stable coins")
         logger.info(f"Top Gainers: Top {self.tg_config.top_n} gainers (paper)")
         logger.info("="*80)
         
         # Send startup notification
         self.telegram.send(
             "🚀 *NEXUS DUAL MODE STARTED*\n\n"
-            f"Stable: {len(self.stable_symbols)} stable coins (shadow)\n"
+# [LEGACY]             f"Stable: {len(self.stable_symbols)} stable coins (shadow)\n"
             f"Top Gainers: Top {self.tg_config.top_n} gainers (paper)\n"
             f"Cycle: Every 15 minutes\n"
             f"Deployed: {datetime.now().strftime('%Y-%m-%d %H:%M WIB')}"
@@ -134,7 +134,7 @@ class NexusRunner:
         
         # === OPTIMIZATION: Get unique symbols ===
         all_symbols = set(self.tg_symbols)  # Top Gainers only
-        logger.info(f"📊 Scanning {len(all_symbols)} unique symbols (stable={len(self.stable_symbols)}, tg={len(self.tg_symbols)}, overlap={len(self.stable_symbols)+len(self.tg_symbols)-len(all_symbols)})")
+# [LEGACY]         logger.info(f"📊 Scanning {len(all_symbols)} unique symbols (stable={len(self.stable_symbols)}, tg={len(self.tg_symbols)}, overlap={len(self.stable_symbols)+len(self.tg_symbols)-len(all_symbols)})")
         
         # Counters
         stable_signals = 0
