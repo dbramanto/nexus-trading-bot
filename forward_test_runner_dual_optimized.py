@@ -62,7 +62,7 @@ class NexusRunner:
         self.cycle_count = 0
         
         logger.info("="*80)
-        logger.info("NEXUS DUAL MODE INITIALIZED (OPTIMIZED)")
+        logger.info("NEXUS NEXUS v2.0 INITIALIZED (OPTIMIZED)")
         logger.info("="*80)
 # [LEGACY]         logger.info(f"Stable: {len(self.stable_symbols)} stable coins")
         logger.info(f"Top Gainers: Top {self.tg_config.top_n} gainers (paper)")
@@ -70,7 +70,7 @@ class NexusRunner:
         
         # Send startup notification
         self.telegram.send(
-            "🚀 *NEXUS DUAL MODE STARTED*\n\n"
+            "🚀 *NEXUS NEXUS v2.0 STARTED*\n\n"
 # [LEGACY]             f"Stable: {len(self.stable_symbols)} stable coins (shadow)\n"
             f"Top Gainers: Top {self.tg_config.top_n} gainers (paper)\n"
             f"Cycle: Every 15 minutes\n"
@@ -307,7 +307,7 @@ class NexusRunner:
         except KeyboardInterrupt:
             logger.info("")
             logger.info("="*80)
-            logger.info("STOPPING DUAL MODE")
+            logger.info("STOPPING NEXUS v2.0")
             logger.info("="*80)
             
             stats = self.paper_trader.get_stats()
@@ -320,7 +320,7 @@ class NexusRunner:
             
             # Final telegram notification
             self.telegram.send(
-                f"🛑 *NEXUS DUAL MODE STOPPED*\n\n"
+                f"🛑 *NEXUS NEXUS v2.0 STOPPED*\n\n"
                 f"Paper Trading Final Results:\n"
                 f"Total trades: {stats['total_trades']}\n"
                 f"Win rate: {stats['win_rate']:.1f}%\n"
@@ -334,7 +334,7 @@ class NexusRunner:
             
             # Error notification
             self.telegram.send(
-                f"❌ *NEXUS DUAL MODE CRASHED*\n\n"
+                f"❌ *NEXUS NEXUS v2.0 CRASHED*\n\n"
                 f"Error: {str(e)[:200]}\n"
                 f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M WIB')}\n\n"
                 f"⚠️ Check logs immediately!"

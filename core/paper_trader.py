@@ -200,6 +200,55 @@ class PaperTrader:
         
         return trade
     
+
+    def _save_to_csv(self):
+        """Save current trades to CSV file."""
+        import pandas as pd
+        
+        try:
+            csv_path = 'data/paper_trades_top_gainers.csv'
+            
+            # Collect all trades (open + closed)
+            all_trades = []
+            
+            # Add open positions
+            for symbol, pos in self.open_positions.items():
+                all_trades.append({
+                    'symbol': pos.get('symbol'),
+                    'side': pos.get('side', 'LONG'),
+                    'entry_price': pos.get('entry_price'),
+                    'exit_price': None,
+                    'entry_time': pos.get('entry_time'),
+                    'exit_time': None,
+                    'exit_reason': None,
+                    'size_usd': pos.get('size_usd'),
+                    'leverage': pos.get('leverage'),
+                    'stop_loss': pos.get('stop_loss'),
+                    'take_profit': pos.get('take_profit'),
+                    'pnl_usd': None,
+                    'pnl_pct': None,
+                    'outcome': None,
+                    'hold_hours': None,
+                    'p2_score': pos.get('p2_score'),
+                    'p2_grade': pos.get('p2_grade')
+                })
+            
+            # Read existing CSV to get closed trades
+            if os.path.exists(csv_path):
+                existing_df = pd.read_csv(csv_path)
+                # Keep only closed trades from CSV
+                closed_trades = existing_df[existing_df['outcome'].notna()].to_dict('records')
+                all_trades.extend(closed_trades)
+            
+            # Save combined data
+            df = pd.DataFrame(all_trades)
+            df.to_csv(csv_path, index=False)
+            
+            logger.info(f"💾 Saved {len(all_trades)} trades to CSV")
+            
+        except Exception as e:
+            logger.error(f"Failed to save CSV: {e}")
+
     def get_stats(self) -> Dict:
         """Get trading statistics"""
         

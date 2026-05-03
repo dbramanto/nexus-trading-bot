@@ -7,6 +7,45 @@ from config.strategy_config import NexusConfig
 
 logger = logging.getLogger(__name__)
 
+
+
+# Type-safe comparison wrapper (added May 3, 2026)
+def safe_score_compare(value, threshold, operator='>='):
+    """
+    Safely compare values, handling None and type mismatches.
+    
+    Args:
+        value: Value to compare (can be None, int, float, str)
+        threshold: Threshold to compare against
+        operator: Comparison operator ('>=', '>', '<=', '<', '==')
+    
+    Returns:
+        bool: Result of comparison, False if incomparable
+    """
+    try:
+        if value is None or threshold is None:
+            return False
+        
+        val = float(value)
+        thresh = float(threshold)
+        
+        if operator == '>=':
+            return val >= thresh
+        elif operator == '>':
+            return val > thresh
+        elif operator == '<=':
+            return val <= thresh
+        elif operator == '<':
+            return val < thresh
+        elif operator == '==':
+            return val == thresh
+        else:
+            return False
+            
+    except (ValueError, TypeError, AttributeError):
+        return False
+
+
 class StrategyLogic:
     def __init__(self, config: NexusConfig):
         self.config = config
