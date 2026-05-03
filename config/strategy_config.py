@@ -7,7 +7,7 @@ from dataclasses import dataclass, asdict
 @dataclass
 class ScoringConfig:
     premium_threshold: int = 80
-    valid_threshold: int = 50
+    valid_threshold: int = 60  # Changed from 50 (May 3, 2026)
     weak_threshold: int = 35
     no_trade_threshold: int = 0
     tier_0_max: int = 20
