@@ -198,6 +198,7 @@ class PaperTrader:
             f"PnL: ${pnl_usd:+.2f} ({pnl_pct:+.2f}%)"
         )
         
+        self._save_to_csv()  # Auto-save before return
         return trade
     
 
