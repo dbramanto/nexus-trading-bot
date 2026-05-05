@@ -54,7 +54,7 @@ class StrategyLogic:
         score = context_package.get("score", 0)
         grade = context_package.get("grade", "NO_TRADE")
         bias = context_package.get("bias", "NEUTRAL")
-        threshold = context_package.get("threshold_used", self.config.scoring.weak_threshold)
+        threshold = context_package.get("threshold_used", self.config.scoring.valid_threshold)
         original_grade = grade
         downgraded = False
         downgrade_reason = None
