@@ -5,12 +5,10 @@ scoring:
     valid: 50
     weak: 35
     no_trade: 0
-
 risk_per_trade_percent: 2.5
 max_consecutive_losses: 4
 max_positions: 1
 initial_balance: 1000
-
 position_management:
   stop_loss:
     method: range_based
@@ -23,7 +21,6 @@ position_management:
     trail_percent: 1.5
   breakeven:
     trigger_percent: 2.0
-
 indicators:
   timeframes:
     primary: 15m
@@ -38,7 +35,6 @@ indicators:
   zones:
     premium_threshold: 0.618
     discount_threshold: 0.382
-
 mode: paper_trading
 trading:
   mode: paper
@@ -50,12 +46,10 @@ trading:
     update_interval_hours: 24
   position:
     max_positions: 1
-
 binance:
   api:
     testnet: false
     timeout: 30
-
 data:
   logging:
     level: INFO
