@@ -32,7 +32,7 @@ class ScoringEngine:
         final = max(0, min(100, raw))
         grade = self._assign_grade(final)
         modifier = self._calculate_threshold_modifier(regime)
-        threshold = self.config.get_effective_threshold(modifier)
+        threshold = self.config.scoring.valid_threshold  # Static threshold 60 (was adaptive)
         # Model B — Binary Confidence
         model_b_conf, b_agree, b_total = self._score_model_b(modules, bias)
         model_b_grade = self._assign_grade(model_b_conf)
