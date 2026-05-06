@@ -60,6 +60,8 @@ class NexusRunner:
         self.tg_trader = PaperTrader(initial_balance=10000)      # Top Gainers: Top gainers
         
         self.cycle_count = 0
+        self.last_hourly_report = datetime.now().replace(minute=0, second=0, microsecond=0)
+        self.last_daily_report = datetime.now().date()
         
         logger.info("="*80)
         logger.info("NEXUS NEXUS v2.0 INITIALIZED (OPTIMIZED)")
@@ -282,18 +284,67 @@ class NexusRunner:
         logger.info("="*80)
         
         # Hourly summary via Telegram
-        if self.cycle_count % 4 == 0:  # Every 4 cycles = 1 hour
+        # Daily report at 07:00 WIB
+        current_date = datetime.now().date()
+        current_time = datetime.now().time()
+        if current_date > self.last_daily_report and current_time.hour >= 7:
+            self.last_daily_report = current_date
+            
+            tg_stats = self.tg_trader.get_stats()
+            
+            # Get yesterday's performance
+            import pandas as pd
+            try:
+                df = pd.read_csv('data/paper_trades_top_gainers.csv')
+                df['entry_time'] = pd.to_datetime(df['entry_time'], format='mixed')
+                yesterday = current_date - pd.Timedelta(days=1)
+                yesterday_trades = df[df['entry_time'].dt.date == yesterday]
+                yesterday_closed = yesterday_trades[yesterday_trades['outcome'].notna()]
+                
+                if len(yesterday_closed) > 0:
+                    y_wins = len(yesterday_closed[yesterday_closed['outcome']=='WIN'])
+                    y_wr = (y_wins/len(yesterday_closed))*100
+                    y_pnl = yesterday_closed['pnl_usd'].sum()
+                    
+                    yesterday_summary = (
+                        f"📅 *Yesterday ({yesterday})*\n"
+                        f"  Trades: {len(yesterday_closed)}\n"
+                        f"  WR: {y_wr:.1f}%\n"
+                        f"  PnL: ${y_pnl:+.2f}\n\n"
+                    )
+                else:
+                    yesterday_summary = f"📅 *Yesterday*: No closed trades\n\n"
+            except:
+                yesterday_summary = ""
+            
             self.telegram.send(
-                f"📈 *Hourly Summary (Cycle {self.cycle_count})*\n\n"
-                f"🔵 Stable (Stable):\n"
-                f"🟢 Top Gainers (Gainers):\n"
-                f"  Open: {len(self.tg_trader.open_positions)} | Closed: {tg_stats['total_trades']}\n"
+                f"☀️ *Daily Report - {datetime.now().strftime('%Y-%m-%d')}*\n\n"
+                f"{yesterday_summary}"
+                f"📊 *Overall Performance*\n"
+                f"  Total Trades: {tg_stats['total_trades']}\n"
+                f"  Win Rate: {tg_stats['win_rate']:.1f}%\n"
+                f"  Total PnL: ${tg_stats['total_pnl']:+.2f}\n"
+                f"  Expectancy: ${tg_stats['expectancy']:+.2f}/trade\n\n"
+                f"🕐 Report Time: {datetime.now().strftime('%H:%M WIB')}"
+            )
+            logger.info(f"📰 Daily report sent at {datetime.now().strftime('%H:%M')}")
+
+        # Hourly summary (precise time-based)
+        current_hour = datetime.now().replace(minute=0, second=0, microsecond=0)
+        if current_hour > self.last_hourly_report:
+            self.last_hourly_report = current_hour
+            
+            tg_stats = self.tg_trader.get_stats()
+            
+            self.telegram.send(
+                f"📈 *Hourly Summary*\n\n"
+                f"🕐 Time: {datetime.now().strftime('%H:00 WIB')}\n\n"
+                f"🟢 Top Gainers:\n"
+                f"  Open: {tg_stats['open_positions']} | Closed: {tg_stats['closed_trades']}\n"
                 f"  WR: {tg_stats['win_rate']:.1f}% | PnL: ${tg_stats['total_pnl']:+.2f}"
             )
-    
-    def run(self):
-        """Main loop"""
-        logger.info("🚀 Starting NEXUS NEXUS (OPTIMIZED)...")
+            logger.info(f"📊 Hourly report sent at {datetime.now().strftime('%H:%M')}")
+
         logger.info("Press Ctrl+C to stop")
         logger.info("")
         
