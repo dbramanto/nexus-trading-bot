@@ -335,7 +335,7 @@ class NexusRunner:
         self.telegram.send(
             f"📈 *Hourly Summary*\n\n"
             f"🕐 {datetime.now().strftime('%H:00 WIB')}\n\n"
-            f"Open: {tg_stats['open_positions']} | Closed: {tg_stats['closed_trades']}\n"
+            f"Open: {len(self.tg_trader.open_positions)} | Closed: {tg_stats['total_trades']}\n"
             f"WIN: {len(wins)} | LOSS: {len(losses)}\n"
             f"WR: {tg_stats['win_rate']:.1f}% | PnL: ${tg_stats['total_pnl']:+.2f}"
         )
