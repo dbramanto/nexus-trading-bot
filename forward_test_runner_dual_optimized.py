@@ -283,15 +283,7 @@ class NexusRunner:
         logger.info(f"  📊 TRADES: {tg_signals} new | Open={len(self.tg_trader.open_positions)} Closed={tg_stats['total_trades']} WR={tg_stats['win_rate']:.1f}% PnL=${tg_stats['total_pnl']:+.2f}")
         logger.info("="*80)
         
-        # Hourly summary via Telegram
-        if self.cycle_count % 4 == 0:  # Every 4 cycles = 1 hour
-            self.telegram.send(
-                f"📈 *Hourly Summary (Cycle {self.cycle_count})*\n\n"
-                f"🔵 Stable (Stable):\n"
-                f"🟢 Top Gainers (Gainers):\n"
-                f"  Open: {len(self.tg_trader.open_positions)} | Closed: {tg_stats['total_trades']}\n"
-                f"  WR: {tg_stats['win_rate']:.1f}% | PnL: ${tg_stats['total_pnl']:+.2f}"
-            )
+
     
 
     def send_daily_report(self):
