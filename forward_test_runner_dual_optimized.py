@@ -283,7 +283,7 @@ class NexusRunner:
         logger.info(f"  📊 TRADES: {tg_signals} new | Open={len(self.tg_trader.open_positions)} Closed={tg_stats['total_trades']} WR={tg_stats['win_rate']:.1f}% PnL=${tg_stats['total_pnl']:+.2f}")
         logger.info("="*80)
         
-
+        # Hourly summary via Telegram
     
 
     def send_daily_report(self):
