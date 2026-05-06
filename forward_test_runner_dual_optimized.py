@@ -310,10 +310,17 @@ class NexusRunner:
         except:
             yesterday_summary = ""
         
+        # Calculate WIN/LOSS breakdown
+        wins = [t for t in self.tg_trader.closed_trades if t['outcome'] == 'WIN']
+        losses = [t for t in self.tg_trader.closed_trades if t['outcome'] == 'LOSS']
+        
         self.telegram.send(
             f"☀️ *Daily Report*\n\n"
             f"{yesterday_summary}"
-            f"📊 Total: {tg_stats['total_trades']} | WR {tg_stats['win_rate']:.1f}% | PnL ${tg_stats['total_pnl']:+.2f}"
+            f"📊 *Overall*\n"
+            f"  Total: {tg_stats['total_trades']} | WIN: {len(wins)} | LOSS: {len(losses)}\n"
+            f"  WR: {tg_stats['win_rate']:.1f}% | PnL: ${tg_stats['total_pnl']:+.2f}\n"
+            f"  Avg W: ${tg_stats['avg_win']:+.2f} | Avg L: ${tg_stats['avg_loss']:+.2f}"
         )
         logger.info("📰 Daily report sent")
 
@@ -321,10 +328,15 @@ class NexusRunner:
         """Send hourly report at top of hour"""
         tg_stats = self.tg_trader.get_stats()
         
+        # Calculate WIN/LOSS breakdown
+        wins = [t for t in self.tg_trader.closed_trades if t['outcome'] == 'WIN']
+        losses = [t for t in self.tg_trader.closed_trades if t['outcome'] == 'LOSS']
+        
         self.telegram.send(
             f"📈 *Hourly Summary*\n\n"
             f"🕐 {datetime.now().strftime('%H:00 WIB')}\n\n"
-            f"🟢 Open: {tg_stats['open_positions']} | Closed: {tg_stats['closed_trades']}\n"
+            f"Open: {tg_stats['open_positions']} | Closed: {tg_stats['closed_trades']}\n"
+            f"WIN: {len(wins)} | LOSS: {len(losses)}\n"
             f"WR: {tg_stats['win_rate']:.1f}% | PnL: ${tg_stats['total_pnl']:+.2f}"
         )
         logger.info("📊 Hourly report sent")
