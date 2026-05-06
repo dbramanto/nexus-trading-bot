@@ -352,6 +352,19 @@ class NexusRunner:
                 self.run_cycle()
                 
                 logger.info("⏳ Sleeping 15 minutes...")
+                
+                # Check for hourly report
+                current_hour = datetime.now().replace(minute=0, second=0, microsecond=0)
+                if current_hour > self.last_hourly_check:
+                    self.last_hourly_check = current_hour
+                    self.send_hourly_report()
+                
+                # Check for daily report  
+                current_date = datetime.now().date()
+                if current_date > self.last_daily_check and datetime.now().hour >= 7:
+                    self.last_daily_check = current_date
+                    self.send_daily_report()
+                
                 time.sleep(900)
         
         except KeyboardInterrupt:
