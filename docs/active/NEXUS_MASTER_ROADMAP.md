@@ -597,6 +597,41 @@ PHASE 4 - EXIT TRIGGERS:
   KEY: Exit because momentum dies,
        NOT because time runs out!
 
+SYSTEMIC CONTEXT:
+
+SYSTEMIC ISSUE (Confirmed May 11, 2026):
+  NOT just INXUSDT - affects ALL coins!
+  
+  Pattern observed:
+    INXUSDT:    TP +$267 → re-entry SL -$264
+    BILLUSDT:   TP +$499 → re-entry SL -$131
+    PLAYUSDT:   TP +$364 → re-entry SL -$304
+    COLLECTUSDT:TP +$376 → re-entry SL -$208
+    STRKUSDT:   TP +$246 → re-entry SL -$216
+    
+  Root cause: System has no memory of
+  per-coin momentum state!
+  Top gainers list = lagging indicator.
+  Coin stays in list after momentum dies.
+  System keeps re-entering dead momentum!
+  
+  REQUIRED FIXES (Sprint 2):
+  A. Per-coin trade history tracking (daily)
+     today_traded[symbol] = {exits, reasons, times}
+     
+  B. Momentum state per coin
+     momentum_state[symbol] = FRESH/FADING/DEAD
+     
+  C. Freshness gate for ALL coins
+     Any coin exited today = needs fresh momentum proof
+     
+  D. Stricter re-entry threshold
+     Normal entry:  Score >= 65
+     Re-entry:      Score >= 75 (higher confidence needed)
+     
+  E. Immediate coin hunting post-exit
+     Priority: Brand new coins > Re-entry old coins
+
 PHASE 5 - POST EXIT (Hunt Fresh):
   NO COOLDOWN! Immediately scan:
   
