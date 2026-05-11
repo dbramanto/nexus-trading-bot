@@ -7,7 +7,7 @@ from dataclasses import dataclass, asdict
 @dataclass
 class ScoringConfig:
     premium_threshold: int = 80
-    valid_threshold: int = 60  # Changed from 50 (May 3, 2026)
+    valid_threshold: int = 65  # Changed from 60 (May 11, 2026) - Data proven: score 60-64 WR 35.9%
     weak_threshold: int = 35
     no_trade_threshold: int = 0
     tier_0_max: int = 20

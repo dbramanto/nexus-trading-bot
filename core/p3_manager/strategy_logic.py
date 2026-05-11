@@ -214,7 +214,7 @@ class StrategyLogic:
             return {"action": "WAIT", "model": "B", "score": conf,
                     "reason": f"Confidence {conf}% < {threshold_b}%", "grade": "NO_TRADE"}
 
-        grade = "PREMIUM" if conf >= 75 else "VALID" if conf >= 60 else "WEAK"
+        grade = "PREMIUM" if conf >= 75 else "VALID" if conf >= 65 else "WEAK"
         action = "LONG" if bias == "BULLISH" else "SHORT"
         return {
             "action": action, "model": "B", "score": conf,
