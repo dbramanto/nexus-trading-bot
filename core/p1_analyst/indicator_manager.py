@@ -26,10 +26,10 @@ class IndicatorManager:
 
     def run_all(self, df: pd.DataFrame, config: Any = None, symbol: str = None) -> Dict[str, Any]:
         start_time = time.time()
-        logger.info("TRACE 2: P1.run_all received symbol=%s" % symbol)
+        logger.debug("TRACE 2: P1.run_all received symbol=%s" % symbol)
         reports = {}
         reports["symbol"] = symbol if symbol else "UNKNOWN"
-        logger.info("TRACE 3: P1 stored symbol=%s in reports" % reports.get("symbol"))
+        logger.debug("TRACE 3: P1 stored symbol=%s in reports" % reports.get("symbol"))
         active_count = 0
         skipped_count = 0
         errored_count = 0

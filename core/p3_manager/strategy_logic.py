@@ -140,7 +140,7 @@ class StrategyLogic:
         ha_dir = ha.get("ha_direction", "NEUTRAL")
         ha_str = ha.get("ha_strength", "WEAK")
         candle = cp.get("primary_pattern", "")
-        candle_str = cp.get("pattern_strength", 0) or 0
+        candle_str = cp.get("pattern_strength", "WEAK")
 
         # HA berlawanan dengan bias — reject
         if ha_dir != "NEUTRAL" and ha_dir != bias:
@@ -159,12 +159,12 @@ class StrategyLogic:
         # PA berlawanan kuat — reject
         bearish_reversal = ["BEARISH_ENGULFING", "SHOOTING_STAR", "BEARISH_PIN_BAR"]
         bullish_reversal = ["BULLISH_ENGULFING", "HAMMER", "BULLISH_PIN_BAR"]
-        if bias == "BULLISH" and candle in bearish_reversal and candle_str >= 3:
+        if bias == "BULLISH" and candle in bearish_reversal and candle_str in ["STRONG", "MEDIUM"]:
             return self._wait(
                 f"PA berlawanan kuat: {candle} strength={candle_str}",
                 score, grade, threshold
             )
-        if bias == "BEARISH" and candle in bullish_reversal and candle_str >= 3:
+        if bias == "BEARISH" and candle in bullish_reversal and candle_str in ["STRONG", "MEDIUM"]:
             return self._wait(
                 f"PA berlawanan kuat: {candle} strength={candle_str}",
                 score, grade, threshold

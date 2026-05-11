@@ -21,12 +21,17 @@ from core.p4_auditor.trade_logger import TradeLogger
 from execution.binance_client import BinanceClientWrapper
 from execution.telegram_notifier import TelegramNotifier
 
+import logging.handlers as _lh
+import os as _os2
+_os2.makedirs('logs', exist_ok=True)
+_rfh = _lh.RotatingFileHandler(
+    'logs/nexus_dual_mode.log', maxBytes=10*1024*1024, backupCount=5
+)
+_rfh.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s'))
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-    handlers=[
-        logging.StreamHandler()
-    ]
+    handlers=[logging.StreamHandler(), _rfh]
 )
 
 logger = logging.getLogger(__name__)
@@ -156,7 +161,7 @@ class NexusRunner:
                         current_prices[sym] = float(klines[-1][4])
                 except:
                     pass
-            self.tg_trader.check_exits(current_prices, self.tg_config.max_hold_hours)
+            self.tg_trader.check_exits(current_prices, max_hold_hours=48)
         
         # === SINGLE LOOP: Fetch + Process ONCE per symbol ===
         for symbol in all_symbols:

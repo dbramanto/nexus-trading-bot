@@ -16,7 +16,7 @@ class ScoringEngine:
         # OPTIMIZATION NOTE: Volume gate removed - let T0 scoring handle volume naturally
         # Low volume will still get low scores via T0 context scoring
         modules = p1_reports
-        logger.info("TRACE 4: P2 modules keys=%s, has_symbol=%s" % (list(modules.keys())[:5], 'symbol' in modules))
+        logger.debug("TRACE 4: P2 modules keys=%s, has_symbol=%s" % (list(modules.keys())[:5], 'symbol' in modules))
         bias = self._determine_bias(modules)
         regime = self._determine_regime(modules)
         t0 = min(self._score_t0_context(modules, regime), self.config.scoring.tier_0_max)
