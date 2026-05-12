@@ -18,7 +18,7 @@ class PaperTrader:
     Tracks positions, calculates PnL, logs all trades
     """
     
-    def __init__(self, initial_balance: float = 10000, csv_path: str = 'data/paper_trades_top_gainers.csv'):
+    def __init__(self, initial_balance: float = 1000, csv_path: str = 'data/paper_trades_top_gainers.csv'):
         self.initial_balance = initial_balance
         self.balance = initial_balance
         self.open_positions = {}
@@ -145,7 +145,11 @@ class PaperTrader:
             # If not in profit: Apply time limit (cut losers)
             # Only add if not already scheduled to close (prevent duplicate!)
             already_closing = any(s[0] == symbol for s in symbols_to_close)
-            if not already_closing and pnl_pct <= 0 and duration >= max_hold_hours:
+            # Conditional MAX_HOLD:
+            # Losing position: exit after 8h (momentum dead!)
+            # Winning position: hold up to 48h (let it run!)
+            max_hold_dynamic = 8 if pnl_pct <= 0 else max_hold_hours
+            if not already_closing and duration >= max_hold_dynamic:
                 symbols_to_close.append((symbol, current_price, "MAX_HOLD"))
         
         # Close positions (deduplicate first)

@@ -62,7 +62,7 @@ class NexusRunner:
         self.tg_last_refresh = None
         # Separate traders for fair A/B comparison
 # [LEGACY]         self.stable_trader = None  # Stable trading disabled
-        self.tg_trader = PaperTrader(initial_balance=10000)      # Top Gainers: Top gainers
+        self.tg_trader = PaperTrader(initial_balance=1000)      # Top Gainers: Top gainers
         
         self.cycle_count = 0
         self.last_hourly_check = datetime.now().replace(minute=0, second=0, microsecond=0)
@@ -133,6 +133,7 @@ class NexusRunner:
         
         logger.info("")
         logger.info("="*80)
+        self._exited_this_cycle = set()  # Reset per cycle
         logger.info(f"CYCLE {self.cycle_count} | {datetime.now().strftime('%H:%M:%S WIB')}")
         logger.info("="*80)
         
@@ -220,10 +221,21 @@ class NexusRunner:
 
                 # Stable entry logic disabled
                 if symbol in self.tg_symbols:
+
+                    # Skip if symbol exited this cycle (no re-entry!)
+                    if symbol in getattr(self, '_exited_this_cycle', set()):
+                        logger.info(f"⏭️  {symbol} exited this cycle - skip re-entry")
+                        continue
+
                     # Skip if position already open
                     if symbol in self.tg_trader.open_positions:
                         continue
-                    
+
+                    # Max positions = 5
+                    if len(self.tg_trader.open_positions) >= 5:
+                        logger.info(f"⛔ Max 5 positions - skip {symbol}")
+                        continue
+
                     if action in ['LONG', 'SHORT']:
                         tg_signals += 1
                         
@@ -232,12 +244,12 @@ class NexusRunner:
                         tp_pct = self.tg_config.take_profit_pct / 100
                         
                         if action == 'LONG':
-                            sl = current_price * (1 - sl_pct)
-                            tp = current_price * (1 + tp_pct)
+                            sl = current_price * (1 - sl_pct / leverage)
+                            tp = current_price * (1 + tp_pct / leverage)
                             bias = 'LONG'
                         else:
-                            sl = current_price * (1 + sl_pct)
-                            tp = current_price * (1 - tp_pct)
+                            sl = current_price * (1 + sl_pct / leverage)
+                            tp = current_price * (1 - tp_pct / leverage)
                             bias = 'SHORT'
                         
                         # Open paper position
@@ -253,7 +265,11 @@ class NexusRunner:
                             'target_position_pct': 0.05,
                             'target_position': self.tg_trader.balance * 0.05,
                             'adaptive_leverage': 3 if score >= 70 else (2 if score >= 65 else 1),
-                            'position_size': self.tg_trader.balance * 0.05,
+                            'position_size': (
+                                self.tg_trader.balance * 0.10
+                                if score >= 70
+                                else self.tg_trader.balance * 0.05
+                            ),
                             'leverage': 3 if score >= 70 else (2 if score >= 65 else 1),
                             'p1_snapshot': p1_rep.get('modules', {}),
                             'score': score,
