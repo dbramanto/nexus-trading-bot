@@ -286,7 +286,9 @@ class NexusRunner:
                                 else self.tg_trader.balance * 0.05
                             ),
                             'leverage': 3 if score >= 70 else (2 if score >= 65 else 1),
-                            'p1_snapshot': p1_rep.get('modules', {}),
+                            'p1_snapshot': p1_rep.get('modules',
+                                p1_rep if isinstance(p1_rep, dict)
+                                else {}),
                             'score': score,
                             'grade': grade,
                         }

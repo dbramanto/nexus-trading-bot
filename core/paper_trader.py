@@ -72,21 +72,8 @@ class PaperTrader:
         
         self.open_positions[symbol] = trade
         
-        # Send entry notification
-        try:
-            notifier = TelegramNotifier()
-            msg = (
-                f"🟢 *ENTRY*\n\n"
-                f"Symbol: {symbol}\n"
-                f"Side: {trade['side']}\n"
-                f"Entry: ${trade['entry_price']:.4f}\n"
-                f"TP: ${trade['take_profit']:.4f}\n"
-                f"SL: ${trade['stop_loss']:.4f}\n"
-                f"Score: {trade['p2_score']:.1f}"
-            )
-            notifier.send(msg)
-        except Exception as e:
-            logger.warning(f"Entry notification failed: {e}")
+        # Entry notification handled by runner (enhanced version)
+        # Do NOT send from here to avoid duplicates!
         
         logger.info(
             f"📄 OPEN {trade['side']} {symbol} @ ${trade['entry_price']:.4f} | "
@@ -450,7 +437,18 @@ class PaperTrader:
                 for key in ['entry_time', 'exit_time']:
                     if key in ct_copy and ct_copy[key] is not None:
                         if hasattr(ct_copy[key], 'strftime'):
-                            ct_copy[key] = ct_copy[key].strftime('%Y-%m-%d %H:%M:%S.%f')
+                            ct_copy[key] = ct_copy[key].strftime(
+                                '%Y-%m-%d %H:%M:%S.%f')
+                # Serialize p1_snapshot (dict → JSON string)
+                if 'p1_snapshot' in ct_copy:
+                    p1 = ct_copy['p1_snapshot']
+                    if isinstance(p1, dict) and p1:
+                        try:
+                            import json
+                            ct_copy['p1_snapshot'] = json.dumps(
+                                p1, default=str)
+                        except:
+                            ct_copy['p1_snapshot'] = str(p1)
                 all_trades.append(ct_copy)
 
             # 2. Add OPEN positions from MEMORY
@@ -471,8 +469,11 @@ class PaperTrader:
                     'pnl_pct': None,
                     'outcome': None,
                     'hold_hours': None,
-                    'p2_score': pos.get('p2_score'),
-                    'p2_grade': pos.get('p2_grade')
+                    'p2_score': pos.get('p2_score',
+                                       pos.get('score', 0)),
+                    'p2_grade': pos.get('p2_grade',
+                                       pos.get('grade', '')),
+                    'p1_snapshot': pos.get('p1_snapshot', {})
                 })
 
             # NOTE: Do NOT read from CSV here!
