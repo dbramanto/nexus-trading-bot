@@ -291,7 +291,7 @@ class NexusRunner:
                             'grade': grade,
                         }
                         
-                        self.tg_trader.open_position(signal)
+                        signal_result = self.tg_trader.open_position(signal)
                         
                         # ENTRY notification
                         sl_dist_pct = abs(current_price - sl) / current_price * 100
@@ -458,7 +458,9 @@ class NexusRunner:
 
         msg = (
             f"📈 *Hourly Summary*\n\n"
-            f"🕐 {datetime.now().strftime('%H:%M WIB')} | "
+            f"🕐 {datetime.now().strftime('%H:%M WIB')} | sched: {datetime.now().replace(minute=0,second=0).strftime('%H:00 WIB')}" 
+            f" | {datetime.now().strftime('%d %b %Y')}\n\n"
+            f"(hour: {datetime.now().strftime('%H:00')}) | "
             f"{datetime.now().strftime('%d %b %Y')}\n\n"
             f"💰 Balance: ${bal:.2f} ({session_pct:+.1f}%)\n\n"
             f"📊 Overall: {tg_stats['total_trades']} trades | "

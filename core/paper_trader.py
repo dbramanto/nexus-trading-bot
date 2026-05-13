@@ -140,6 +140,29 @@ class PaperTrader:
             else:  # SHORT
                 pnl_pct = ((trade["entry_price"] - current_price) / trade["entry_price"]) * 100 * trade["leverage"]
             
+            # ================================================
+            # PROFIT PROTECTION: Trailing SL
+            # ================================================
+            # Lock in profits as position gains
+            # Prevents giving back all profit on reversal!
+            if not any(s[0] == symbol for s in symbols_to_close):
+                entry_p = trade['entry_price']
+                
+                if trade['side'] == 'LONG':
+                    # If profit > 20%: Move SL to +10% (lock half)
+                    if pnl_pct >= 20:
+                        new_sl = entry_p * 1.033  # +3.33% = +10% PnL
+                        if new_sl > trade['stop_loss']:
+                            trade['stop_loss'] = new_sl
+                            logger.debug(f"🔒 {symbol} SL locked at +10% PnL")
+                    
+                    # If profit > 10%: Move SL to breakeven
+                    elif pnl_pct >= 10:
+                        new_sl = entry_p * 1.001  # ~breakeven
+                        if new_sl > trade['stop_loss']:
+                            trade['stop_loss'] = new_sl
+                            logger.debug(f"🔒 {symbol} SL moved to breakeven")
+
             # CONDITIONAL TIME EXIT:
             # If in profit: No time limit (let run to TP)
             # If not in profit: Apply time limit (cut losers)
