@@ -293,16 +293,24 @@ class NexusRunner:
                         
                         self.tg_trader.open_position(signal)
                         
-                        # DISABLED - Telegram notification for paper trade
-                        # self.telegram.send(
-                        # f"🚀 *Top Gainers Paper Trade*\n\n"
-                        # f"Action: OPEN {bias}\n"
-                        # f"Symbol: {symbol}\n"
-                        # f"Entry: ${current_price:.4f}\n"
-                        # f"SL: ${sl:.4f} (-{self.tg_config.stop_loss_pct}%)\n"
-                        # f"TP: ${tp:.4f} (+{self.tg_config.take_profit_pct}%)\n"
-                        # f"Score: {score:.1f} | Grade: {grade}"
-                        # )
+                        # ENTRY notification
+                        sl_dist_pct = abs(current_price - sl) / current_price * 100
+                        tp_dist_pct = abs(tp - current_price) / current_price * 100
+                        rr = tp_dist_pct / sl_dist_pct if sl_dist_pct > 0 else 0
+                        size = signal.get('position_size', 0)
+                        lev = signal.get('leverage', 2)
+                        if signal_result:
+                            self.telegram.send(
+                                f"🟢 *ENTRY*\n\n"
+                                f"Symbol:  {symbol}\n"
+                                f"Side:    {bias} | Score: {score:.0f} {grade}\n\n"
+                                f"Entry:   ${current_price:.6f}\n"
+                                f"SL:      ${sl:.6f} (-{sl_dist_pct:.2f}% price)\n"
+                                f"TP:      ${tp:.6f} (+{tp_dist_pct:.2f}% price)\n\n"
+                                f"Size:    ${size:.2f} | Lev: {lev}x | R:R 1:{rr:.2f}\n"
+                                f"Time:    {datetime.now().strftime('%d %b %H:%M WIB')}\n"
+                                f"Balance: ${self.tg_trader.balance:.2f}"
+                            )
             
             except Exception as e:
                 import traceback
@@ -350,13 +358,61 @@ class NexusRunner:
         wins = [t for t in self.tg_trader.closed_trades if t['outcome'] == 'WIN']
         losses = [t for t in self.tg_trader.closed_trades if t['outcome'] == 'LOSS']
         
+        # Today's best/worst
+        best_trade = ""
+        worst_trade = ""
+        today_summary = ""
+        try:
+            df_today = pd.read_csv('data/paper_trades_top_gainers.csv')
+            df_today['entry_time'] = pd.to_datetime(
+                df_today['entry_time'], format='mixed')
+            today_closed = df_today[
+                (df_today['entry_time'].dt.date == current_date) &
+                (df_today['outcome'].notna())
+            ]
+            if len(today_closed) > 0:
+                t_wins = len(today_closed[today_closed['outcome']=='WIN'])
+                t_wr = t_wins/len(today_closed)*100
+                t_pnl = today_closed['pnl_usd'].sum()
+                today_summary = (
+                    f"📅 *Today: {len(today_closed)} trades | "
+                    f"WR {t_wr:.1f}% | ${t_pnl:+.2f}*\n\n"
+                )
+                best = today_closed.loc[today_closed['pnl_usd'].idxmax()]
+                worst = today_closed.loc[today_closed['pnl_usd'].idxmin()]
+                best_trade = (
+                    f"\n💎 Best:  {best['symbol']} "
+                    f"${best['pnl_usd']:+.2f} "
+                    f"({best['hold_hours']:.1f}h, "
+                    f"Score {best['p2_score']:.0f})"
+                )
+                worst_trade = (
+                    f"\n💀 Worst: {worst['symbol']} "
+                    f"${worst['pnl_usd']:+.2f} "
+                    f"({worst['hold_hours']:.1f}h, "
+                    f"Score {worst['p2_score']:.0f})"
+                )
+        except Exception as e:
+            logger.warning(f"Daily stats error: {e}")
+
+        bal = self.tg_trader.balance
+        total_pct = (bal - 1000.0) / 1000.0 * 100
+
         self.telegram.send(
-            f"☀️ *Daily Report*\n\n"
+            f"☀️ *Daily Report - "
+            f"{datetime.now().strftime('%d %b %Y')}*\n\n"
+            f"💰 Balance: ${bal:.2f} ({total_pct:+.1f}%)\n\n"
+            f"{today_summary}"
             f"{yesterday_summary}"
             f"📊 *Overall*\n"
-            f"  Total: {tg_stats['total_trades']} | WIN: {len(wins)} | LOSS: {len(losses)}\n"
-            f"  WR: {tg_stats['win_rate']:.1f}% | PnL: ${tg_stats['total_pnl']:+.2f}\n"
-            f"  Avg W: ${tg_stats['avg_win']:+.2f} | Avg L: ${tg_stats['avg_loss']:+.2f}"
+            f"  Total: {tg_stats['total_trades']} | "
+            f"WIN: {len(wins)} | LOSS: {len(losses)}\n"
+            f"  WR: {tg_stats['win_rate']:.1f}% | "
+            f"PnL: ${tg_stats['total_pnl']:+.2f}\n"
+            f"  Avg W: ${tg_stats['avg_win']:+.2f} | "
+            f"Avg L: ${tg_stats['avg_loss']:+.2f}"
+            f"{best_trade}"
+            f"{worst_trade}"
         )
         logger.info("📰 Daily report sent")
 
@@ -368,13 +424,58 @@ class NexusRunner:
         wins = [t for t in self.tg_trader.closed_trades if t['outcome'] == 'WIN']
         losses = [t for t in self.tg_trader.closed_trades if t['outcome'] == 'LOSS']
         
-        self.telegram.send(
+        # Open positions detail
+        open_lines = ""
+        for sym, pos in list(self.tg_trader.open_positions.items())[:5]:
+            try:
+                entry_t = pos.get('entry_time')
+                if isinstance(entry_t, str):
+                    from datetime import datetime as dt2
+                    entry_t = dt2.fromisoformat(entry_t)
+                hold_h = (datetime.now() - entry_t).total_seconds()/3600
+                sc = pos.get('p2_score', pos.get('score', 0))
+                open_lines += f"  ⏳ {sym} Score:{sc:.0f} {hold_h:.1f}h\n"
+            except:
+                open_lines += f"  ⏳ {sym}\n"
+
+        # Recent closes
+        recent_lines = ""
+        recent = sorted(
+            self.tg_trader.closed_trades,
+            key=lambda x: x.get('exit_time',''), reverse=True
+        )[:3]
+        for t in recent:
+            emoji = "✅" if t['outcome']=='WIN' else "❌"
+            recent_lines += (
+                f"  {emoji} {t['symbol']} "
+                f"{t.get('exit_reason','')} "
+                f"${t.get('pnl_usd',0):+.2f} "
+                f"({t.get('hold_hours',0):.1f}h)\n"
+            )
+
+        bal = self.tg_trader.balance
+        session_pct = (bal - 1000.0) / 1000.0 * 100
+
+        msg = (
             f"📈 *Hourly Summary*\n\n"
-            f"🕐 {datetime.now().strftime('%H:00 WIB')}\n\n"
-            f"Open: {len(self.tg_trader.open_positions)} | Closed: {tg_stats['total_trades']}\n"
-            f"WIN: {len(wins)} | LOSS: {len(losses)}\n"
-            f"WR: {tg_stats['win_rate']:.1f}% | PnL: ${tg_stats['total_pnl']:+.2f}"
+            f"🕐 {datetime.now().strftime('%H:%M WIB')} | "
+            f"{datetime.now().strftime('%d %b %Y')}\n\n"
+            f"💰 Balance: ${bal:.2f} ({session_pct:+.1f}%)\n\n"
+            f"📊 Overall: {tg_stats['total_trades']} trades | "
+            f"WR {tg_stats['win_rate']:.1f}% | "
+            f"${tg_stats['total_pnl']:+.2f}\n"
+            f"   WIN: {len(wins)} | LOSS: {len(losses)}\n"
+            f"   Avg W: ${tg_stats['avg_win']:+.2f} | "
+            f"Avg L: ${tg_stats['avg_loss']:+.2f}\n"
         )
+        if recent_lines:
+            msg += f"\n🕐 Recent:\n{recent_lines}"
+        if open_lines:
+            msg += f"\n🔄 Open ({len(self.tg_trader.open_positions)}):\n{open_lines}"
+        else:
+            msg += f"\n🔄 Open: 0"
+
+        self.telegram.send(msg)
         logger.info("📊 Hourly report sent")
 
     def run(self):

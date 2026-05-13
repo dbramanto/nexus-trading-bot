@@ -217,16 +217,52 @@ class PaperTrader:
         
         self.closed_trades.append(trade)
         
-        # Send exit notification
+        # Send exit notification (enhanced)
         try:
             notifier = TelegramNotifier()
             emoji = "✅" if trade['outcome'] == "WIN" else "❌"
+            reason_emoji = {
+                'TP_HIT': '🎯', 'SL_HIT': '🛑',
+                'MAX_HOLD': '⏰'
+            }.get(reason, '📤')
+
+            # Price distances
+            entry_p = trade['entry_price']
+            sl_p = trade.get('stop_loss', 0)
+            tp_p = trade.get('take_profit', 0)
+            lev = trade.get('leverage', 2)
+            size = trade.get('size_usd', 0)
+            sc = trade.get('p2_score', 0)
+            grade = trade.get('p2_grade', '')
+            hold_h = trade.get('hold_hours', 0)
+
+            sl_dist = abs(entry_p - sl_p)/entry_p*100 if entry_p else 0
+            tp_dist = abs(tp_p - entry_p)/entry_p*100 if entry_p else 0
+            price_move = abs(exit_price - entry_p)/entry_p*100
+
+            entry_t = trade.get('entry_time', '')
+            exit_t = trade.get('exit_time', datetime.now())
+            if isinstance(entry_t, datetime):
+                entry_str = entry_t.strftime('%d %b %H:%M WIB')
+            else:
+                entry_str = str(entry_t)[:16]
+            exit_str = exit_t.strftime('%d %b %H:%M WIB')
+
             msg = (
-                f"{emoji} *EXIT*\n\n"
-                f"Symbol: {symbol}\n"
-                f"PnL: ${trade['pnl_usd']:+.2f}\n"
-                f"Outcome: {trade['outcome']}\n"
-                f"Reason: {reason}"
+                f"{emoji} *EXIT - {reason_emoji} {reason}*\n\n"
+                f"Symbol:  {symbol}\n"
+                f"Side:    {trade.get('side','LONG')} | "
+                f"Score: {sc:.0f} {grade}\n\n"
+                f"Entry:   ${entry_p:.6f} ({entry_str})\n"
+                f"Exit:    ${exit_price:.6f} ({exit_str})\n"
+                f"Hold:    {hold_h:.2f}h\n\n"
+                f"SL was:  ${sl_p:.6f} (-{sl_dist:.2f}% price)\n"
+                f"TP was:  ${tp_p:.6f} (+{tp_dist:.2f}% price)\n"
+                f"Move:    {price_move:.2f}% price\n\n"
+                f"Size:    ${size:.2f} | Lev: {lev}x\n"
+                f"PnL:     ${trade['pnl_usd']:+.2f} "
+                f"({trade['pnl_pct']:+.2f}%)\n"
+                f"Balance: ${self.balance:.2f}"
             )
             notifier.send(msg)
         except Exception as e:
@@ -235,8 +271,9 @@ class PaperTrader:
         # Log
         emoji = "✅" if pnl_usd > 0 else "❌"
         logger.info(
-            f"📄 {emoji} CLOSE {symbol} @ ${exit_price:.4f} | {reason} | "
-            f"PnL: ${pnl_usd:+.2f} ({pnl_pct:+.2f}%)"
+            f"📄 {emoji} CLOSE {symbol} @ ${exit_price:.6f} | "
+            f"{reason} | PnL: ${pnl_usd:+.2f} ({pnl_pct:+.2f}%) | "
+            f"Hold: {duration:.2f}h"
         )
         
         self._save_to_csv()  # Auto-save before return
