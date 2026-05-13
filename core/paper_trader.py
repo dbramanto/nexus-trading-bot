@@ -108,10 +108,26 @@ class PaperTrader:
         symbols_to_close = []
         
         for symbol, trade in self.open_positions.items():
+            # CRITICAL FIX: Always fetch fresh price for open positions
+            # Do NOT skip if not in current_prices!
+            # Missing from scanner = coin dropped from top gainers
+            # = Still need to check SL/TP!
             if symbol not in current_prices:
-                continue
-            
-            current_price = current_prices[symbol]
+                try:
+                    import requests
+                    r = requests.get(
+                        f"https://fapi.binance.com/fapi/v1/ticker/price"
+                        f"?symbol={symbol}",
+                        timeout=5
+                    )
+                    current_price = float(r.json()['price'])
+                    logger.debug(f"📡 Fetched price for {symbol} "
+                                f"(not in scanner): ${current_price:.6f}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Cannot fetch price for {symbol}: {e}")
+                    continue
+            else:
+                current_price = current_prices[symbol]
             
             # Check SL
             if trade['side'] == 'LONG':
