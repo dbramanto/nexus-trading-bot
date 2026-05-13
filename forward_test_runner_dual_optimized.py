@@ -162,7 +162,19 @@ class NexusRunner:
                         current_prices[sym] = float(klines[-1][4])
                 except:
                     pass
+            # Run exits - capture closed symbols for re-entry block
+            closed_before = set(t['symbol'] 
+                for t in self.tg_trader.closed_trades)
             self.tg_trader.check_exits(current_prices, max_hold_hours=48)
+            closed_after = set(t['symbol'] 
+                for t in self.tg_trader.closed_trades)
+            
+            # Add newly closed symbols to exited_this_cycle
+            newly_closed = closed_after - closed_before
+            if newly_closed:
+                self._exited_this_cycle.update(newly_closed)
+                for sym in newly_closed:
+                    logger.info(f"🚫 {sym} closed this cycle - blocked from re-entry")
         
         # === SINGLE LOOP: Fetch + Process ONCE per symbol ===
         for symbol in all_symbols:
@@ -240,6 +252,9 @@ class NexusRunner:
                         tg_signals += 1
                         
                         # Calculate SL/TP
+                        # Define leverage before SL/TP calculation!
+                        leverage = 3 if score >= 70 else (2 if score >= 65 else 1)
+
                         sl_pct = self.tg_config.stop_loss_pct / 100
                         tp_pct = self.tg_config.take_profit_pct / 100
                         
