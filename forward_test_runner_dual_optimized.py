@@ -503,22 +503,38 @@ class NexusRunner:
         try:
             while True:
                 self.run_cycle()
-                
-                logger.info("⏳ Sleeping 15 minutes...")
-                
-                # Check for hourly report
-                current_hour = datetime.now().replace(minute=0, second=0, microsecond=0)
+
+                # Check hourly BEFORE sleep
+                now = datetime.now()
+                current_hour = now.replace(
+                    minute=0, second=0, microsecond=0)
                 if current_hour > self.last_hourly_check:
                     self.last_hourly_check = current_hour
                     self.send_hourly_report()
-                
-                # Check for daily report  
-                current_date = datetime.now().date()
-                if current_date > self.last_daily_check and datetime.now().hour >= 7:
+
+                # Check daily BEFORE sleep
+                current_date = now.date()
+                if current_date > self.last_daily_check and                    now.hour >= 7:
                     self.last_daily_check = current_date
                     self.send_daily_report()
-                
-                time.sleep(900)
+
+                # Smart sleep: until next 15-min boundary
+                # Ensures hourly fires EXACTLY on the hour!
+                # e.g. 20:59 → sleep 1min → 21:00 → hourly! ✅
+                minutes = now.minute
+                seconds = now.second
+                next_mark = ((minutes // 15) + 1) * 15
+                if next_mark >= 60:
+                    next_mark = 60
+                sleep_secs = max(
+                    30,
+                    min((next_mark - minutes)*60 - seconds, 900)
+                )
+                logger.info(
+                    f"⏳ Sleeping {sleep_secs}s "
+                    f"(next cycle at :{next_mark:02d})")
+                time.sleep(sleep_secs)
+
         
         except KeyboardInterrupt:
             logger.info("")
