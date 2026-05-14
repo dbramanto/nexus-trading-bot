@@ -134,6 +134,10 @@ class NexusRunner:
         logger.info("")
         logger.info("="*80)
         self._exited_this_cycle = set()  # Reset per cycle
+        
+        # DATA COLLECTION (not filters yet - need 50+ trades first!)
+        self._first_seen = {}    # {symbol: first_seen_timestamp}
+        self._sl_exits = {}      # {symbol: last_sl_exit_timestamp}
         logger.info(f"CYCLE {self.cycle_count} | {datetime.now().strftime('%H:%M:%S WIB')}")
         logger.info("="*80)
         
@@ -233,6 +237,14 @@ class NexusRunner:
 
                 # Stable entry logic disabled
                 if symbol in self.tg_symbols:
+                    
+                    # DATA COLLECTION: Track freshness
+                    # (Not used as filter yet - collecting data!)
+                    if symbol not in self._first_seen:
+                        self._first_seen[symbol] = datetime.now()
+                        logger.debug(
+                            f"📊 DATA: {symbol} first seen "
+                            f"{datetime.now().strftime('%H:%M')}")
 
                     # Skip if symbol exited this cycle (no re-entry!)
                     if symbol in getattr(self, '_exited_this_cycle', set()):

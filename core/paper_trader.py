@@ -152,19 +152,31 @@ class PaperTrader:
                 entry_p = trade['entry_price']
                 
                 if trade['side'] == 'LONG':
-                    # If profit > 20%: Move SL to +10% (lock half)
+                    # PnL >= 20%: Lock +10% PnL
                     if pnl_pct >= 20:
-                        new_sl = entry_p * 1.033  # +3.33% = +10% PnL
-                        if new_sl > trade['stop_loss']:
+                        lock_pct = (10 / 100) / lev
+                        new_sl = entry_p * (1 + lock_pct)
+                        # GUARD: new_sl must be < entry (can't be above!)
+                        # AND above current_sl AND below current_price
+                        if (new_sl > trade['stop_loss'] and
+                                new_sl < current_price and
+                                new_sl <= entry_p * 1.0001):
                             trade['stop_loss'] = new_sl
-                            logger.debug(f"🔒 {symbol} SL locked at +10% PnL")
-                    
-                    # If profit > 10%: Move SL to breakeven
+                            logger.info(
+                                f"🔒 {symbol} SL locked +10%: "
+                                f"${new_sl:.6f}")
+
+                    # PnL >= 10%: True breakeven (entry price)
                     elif pnl_pct >= 10:
-                        new_sl = entry_p * 1.001  # ~breakeven
-                        if new_sl > trade['stop_loss']:
+                        new_sl = entry_p  # Exact entry = breakeven
+                        # GUARD: new_sl must be above current_sl
+                        # AND below current_price
+                        if (new_sl > trade['stop_loss'] and
+                                new_sl < current_price):
                             trade['stop_loss'] = new_sl
-                            logger.debug(f"🔒 {symbol} SL moved to breakeven")
+                            logger.info(
+                                f"🔒 {symbol} SL → breakeven: "
+                                f"${new_sl:.6f}")
 
             # CONDITIONAL TIME EXIT:
             # If in profit: No time limit (let run to TP)
