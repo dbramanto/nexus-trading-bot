@@ -524,15 +524,15 @@ class NexusRunner:
                 minutes = now.minute
                 seconds = now.second
                 next_mark = ((minutes // 15) + 1) * 15
-                if next_mark >= 60:
-                    next_mark = 60
                 sleep_secs = max(
                     30,
                     min((next_mark - minutes)*60 - seconds, 900)
                 )
+                # Display label: :60 means :00 next hour
+                display = next_mark if next_mark < 60 else 0
                 logger.info(
                     f"⏳ Sleeping {sleep_secs}s "
-                    f"(next cycle at :{next_mark:02d})")
+                    f"(next cycle at :{display:02d})")
                 time.sleep(sleep_secs)
 
         
