@@ -185,6 +185,50 @@ class NexusRunner:
             try:
                 # 1. Fetch data ONCE
                 df = self._fetch_df(symbol, "15m", 100)
+
+                # ================================================
+                # H1 STRUCTURE FILTER
+                # Top gainer confirmed → Check H1 alignment
+                # Only trade if H1 structure is BULLISH!
+                # ================================================
+                try:
+                    df_h1 = self._fetch_df(symbol, "1h", 50)
+                    if df_h1 is not None and len(df_h1) >= 10:
+                        # Simple H1 check using HA + trend
+                        # HA direction from last 3 H1 candles
+                        h1_close = df_h1['close'].values
+                        h1_open = df_h1['open'].values
+                        
+                        # Heiken Ashi H1
+                        ha_close = (h1_open[-1] + df_h1['high'].values[-1] +
+                                   df_h1['low'].values[-1] + h1_close[-1]) / 4
+                        ha_open = (h1_open[-2] + h1_close[-2]) / 2
+                        
+                        h1_bullish = ha_close > ha_open
+                        
+                        # Also check H1 trend: price above MA20
+                        if len(h1_close) >= 20:
+                            h1_ma20 = sum(h1_close[-20:]) / 20
+                            h1_above_ma = h1_close[-1] > h1_ma20
+                        else:
+                            h1_above_ma = True  # Default allow
+                        
+                        # H1 aligned = HA bullish AND above MA20
+                        h1_aligned = h1_bullish and h1_above_ma
+                        
+                        if not h1_aligned:
+                            logger.info(
+                                f"📊 H1 FILTER: {symbol} rejected "
+                                f"(H1 HA={'BULL' if h1_bullish else 'BEAR'} "
+                                f"MA={'above' if h1_above_ma else 'below'})")
+                            continue
+                        else:
+                            logger.debug(
+                                f"📊 H1 FILTER: {symbol} aligned ✅ "
+                                f"(HA={'BULL'} MA={'above' if h1_above_ma else 'below'})")
+                except Exception as e:
+                    logger.warning(f"H1 filter error {symbol}: {e}")
+                    # On error: allow through (don't block on H1 failure)
                 
                 # 2. P1 analyze ONCE (expensive!)
                 p1_rep = self.p1.run_all(df, self.config, symbol=symbol)

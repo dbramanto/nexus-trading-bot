@@ -194,7 +194,7 @@ class TopGainerMode:
     enabled = True  # ✅ ENABLED for paper testing
     
     # Symbol selection
-    top_n = 10
+    top_n = 20
     min_24h_change = 15.0  # %
     max_24h_change = 150.0  # Filter extreme pumps
     min_volume_usd = 10_000_000
