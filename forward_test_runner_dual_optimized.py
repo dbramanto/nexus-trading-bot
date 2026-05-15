@@ -304,7 +304,45 @@ class NexusRunner:
                         logger.info(f"⛔ Max 5 positions - skip {symbol}")
                         continue
 
+
+                    # ============================================
+                    # ENTRY QUALITY FILTERS (Traffic Lights!)
+                    # Must pass ALL before entry!
+                    # ============================================
                     if action in ['LONG', 'SHORT']:
+                        p1_mod = p1_rep.get('modules', {})
+                        _basic = p1_mod.get('basic_indicators', {})
+                        _ha = p1_mod.get('heiken_ashi', {})
+                        
+                        _vol = float(_basic.get('volume_ratio', 0) or 0)
+                        _rsi = float(_basic.get('rsi_value', 50) or 50)
+                        _ha_str = str(_ha.get('ha_strength', '') or '')
+                        
+                        _reject = None
+                        
+                        # 🔴 FILTER 1: Volume >= 0.5x
+                        if _vol > 0 and _vol < 0.5:
+                            _reject = f"Vol:{_vol:.2f}x < 0.5x (weak)"
+                        
+                        # 🔴 FILTER 2: RSI <= 80
+                        elif _rsi > 80:
+                            _reject = f"RSI:{_rsi:.0f} > 80 (overbought)"
+                        
+                        # 🔴 FILTER 3: HA not WEAK
+                        elif _ha_str == 'WEAK':
+                            _reject = f"HA:WEAK (momentum uncertain)"
+                        
+                        if _reject:
+                            logger.info(
+                                f"🔴 ENTRY FILTER: {symbol} "
+                                f"rejected | {_reject}")
+                            continue
+                        else:
+                            logger.debug(
+                                f"🟢 ENTRY FILTER: {symbol} passed "
+                                f"Vol:{_vol:.2f}x RSI:{_rsi:.0f} "
+                                f"HA:{_ha_str}")
+                    
                         tg_signals += 1
                         
                         # Calculate SL/TP
