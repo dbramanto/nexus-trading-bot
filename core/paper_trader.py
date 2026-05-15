@@ -184,16 +184,79 @@ class PaperTrader:
                                 f"(was ${trade['stop_loss']:.6f})")
 
             # CONDITIONAL TIME EXIT:
-            # If in profit: No time limit (let run to TP)
-            # If not in profit: Apply time limit (cut losers)
-            # Only add if not already scheduled to close (prevent duplicate!)
             already_closing = any(s[0] == symbol for s in symbols_to_close)
-            # Conditional MAX_HOLD:
-            # Losing position: exit after 8h (momentum dead!)
-            # Winning position: hold up to 48h (let it run!)
             max_hold_dynamic = 8 if pnl_pct <= 0 else max_hold_hours
             if not already_closing and duration >= max_hold_dynamic:
                 symbols_to_close.append((symbol, current_price, "MAX_HOLD"))
+            
+            # ================================================
+            # HEALTH MONITORING EXIT
+            # Separated from entry scoring (no conflict!)
+            # Binary condition: HOLD or EXIT
+            # Logic: Exit when momentum dies (HA flip)
+            # Does NOT use P2 score - fully independent!
+            # ================================================
+            already_closing = any(s[0] == symbol for s in symbols_to_close)
+            if not already_closing:
+                try:
+                    import requests as _req
+                    import pandas as _pd
+                    
+                    # Fetch fresh M15 candles for this coin
+                    _r = _req.get(
+                        f"https://fapi.binance.com/fapi/v1/klines"
+                        f"?symbol={symbol}&interval=15m&limit=5",
+                        timeout=5)
+                    _klines = _r.json()
+                    
+                    if len(_klines) >= 3:
+                        # Calculate HA for last 2 candles
+                        # HA uses: O,H,L,C of current candle
+                        # HA_close = (O+H+L+C)/4
+                        # HA_open = (prev_HA_O + prev_HA_C)/2
+                        
+                        _c1 = _klines[-2]  # Previous candle
+                        _c2 = _klines[-1]  # Current candle
+                        
+                        _ha_close_1 = (float(_c1[1]) + float(_c1[2]) +
+                                      float(_c1[3]) + float(_c1[4])) / 4
+                        _ha_open_1 = (float(_c1[1]) + float(_c1[4])) / 2
+                        
+                        _ha_close_2 = (float(_c2[1]) + float(_c2[2]) +
+                                      float(_c2[3]) + float(_c2[4])) / 4
+                        _ha_open_2 = (_ha_open_1 + _ha_close_1) / 2
+                        
+                        # HA bearish = close < open
+                        _ha_bearish = _ha_close_2 < _ha_open_2
+                        
+                        # EXIT CONDITIONS (binary, independent):
+                        # Condition A: HA bearish + position losing
+                        _cond_a = _ha_bearish and pnl_pct < 0
+                        
+                        # Condition B: HA bearish + hold > 1h
+                        # (Momentum died, don't wait for SL)
+                        _cond_b = _ha_bearish and duration > 1.0
+                        
+                        if _cond_a or _cond_b:
+                            _reason = "A" if _cond_a else "B"
+                            logger.info(
+                                f"🔄 MOMENTUM EXIT | {symbol} | "
+                                f"HA=BEARISH | "
+                                f"Cond:{_reason} | "
+                                f"PnL:{pnl_pct:+.1f}% | "
+                                f"Hold:{duration:.1f}h")
+                            symbols_to_close.append(
+                                (symbol, current_price, "MOMENTUM_EXIT"))
+                        else:
+                            _ha_dir = "BEAR" if _ha_bearish else "BULL"
+                            logger.debug(
+                                f"💚 HOLD | {symbol} | "
+                                f"HA={_ha_dir} | "
+                                f"PnL:{pnl_pct:+.1f}%")
+                
+                except Exception as _e:
+                    logger.debug(f"Health monitor error {symbol}: {_e}")
+                    # On error: don't exit (safe default = hold!)
         
         # Close positions (deduplicate first)
         seen_symbols = set()
