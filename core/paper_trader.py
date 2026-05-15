@@ -152,31 +152,36 @@ class PaperTrader:
                 entry_p = trade['entry_price']
                 
                 if trade['side'] == 'LONG':
+                    # Use trade leverage (lev was undefined bug!)
+                    _lev = trade.get('leverage', 2)
+                    
                     # PnL >= 20%: Lock +10% PnL
                     if pnl_pct >= 20:
-                        lock_pct = (10 / 100) / lev
+                        lock_pct = (10 / 100) / _lev
                         new_sl = entry_p * (1 + lock_pct)
-                        # GUARD: new_sl must be < entry (can't be above!)
-                        # AND above current_sl AND below current_price
+                        # GUARD: new_sl above current_sl
+                        # AND below current_price
+                        # REMOVED entry guard (was blocking valid PP!)
                         if (new_sl > trade['stop_loss'] and
-                                new_sl < current_price and
-                                new_sl <= entry_p * 1.0001):
+                                new_sl < current_price):
                             trade['stop_loss'] = new_sl
                             logger.info(
-                                f"🔒 {symbol} SL locked +10%: "
-                                f"${new_sl:.6f}")
+                                f"🔒 {symbol} SL locked +10%PnL: "
+                                f"${new_sl:.6f} "
+                                f"(lev:{_lev}x)")
 
                     # PnL >= 10%: True breakeven (entry price)
                     elif pnl_pct >= 10:
                         new_sl = entry_p  # Exact entry = breakeven
-                        # GUARD: new_sl must be above current_sl
+                        # GUARD: new_sl above current_sl
                         # AND below current_price
                         if (new_sl > trade['stop_loss'] and
                                 new_sl < current_price):
                             trade['stop_loss'] = new_sl
                             logger.info(
                                 f"🔒 {symbol} SL → breakeven: "
-                                f"${new_sl:.6f}")
+                                f"${new_sl:.6f} "
+                                f"(was ${trade['stop_loss']:.6f})")
 
             # CONDITIONAL TIME EXIT:
             # If in profit: No time limit (let run to TP)
