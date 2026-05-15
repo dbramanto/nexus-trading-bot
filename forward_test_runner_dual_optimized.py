@@ -286,9 +286,9 @@ class NexusRunner:
                     # (Not used as filter yet - collecting data!)
                     if symbol not in self._first_seen:
                         self._first_seen[symbol] = datetime.now()
-                        logger.debug(
-                            f"📊 DATA: {symbol} first seen "
-                            f"{datetime.now().strftime('%H:%M')}")
+                        logger.info(
+                            f"🆕 FIRST_SEEN: {symbol} "
+                            f"@ {datetime.now().strftime('%H:%M')}")
 
                     # Skip if symbol exited this cycle (no re-entry!)
                     if symbol in getattr(self, '_exited_this_cycle', set()):
@@ -351,6 +351,35 @@ class NexusRunner:
                         
                         signal_result = self.tg_trader.open_position(signal)
                         
+                        # LOG P1 details at entry
+                        if signal_result:
+                            p1_mod = p1_rep.get('modules', {})
+                            basic = p1_mod.get('basic_indicators',{})
+                            ha = p1_mod.get('heiken_ashi',{})
+                            mom = p1_mod.get('momentum_classifier',{})
+                            pd_zone = p1_mod.get('premium_discount',{})
+                            
+                            rsi = basic.get('rsi_value', 0)
+                            vol = basic.get('volume_ratio', 0)
+                            ha_dir = ha.get('ha_direction','?')
+                            ha_str = ha.get('ha_strength','?')
+                            momentum = mom.get('momentum','?')
+                            zone = pd_zone.get('price_zone','?')
+                            fresh_h = (
+                                datetime.now() - 
+                                self._first_seen.get(symbol, datetime.now())
+                            ).total_seconds()/3600
+                            
+                            logger.info(
+                                f"📊 ENTRY_DATA | {symbol} | "
+                                f"RSI:{rsi:.0f} "
+                                f"Vol:{vol:.2f}x "
+                                f"HA:{ha_dir}/{ha_str} "
+                                f"Zone:{zone} "
+                                f"Mom:{momentum} "
+                                f"Fresh:{fresh_h:.1f}h "
+                                f"Score:{score:.0f}")
+                        
                         # ENTRY notification
                         sl_dist_pct = abs(current_price - sl) / current_price * 100
                         tp_dist_pct = abs(tp - current_price) / current_price * 100
@@ -383,6 +412,33 @@ class NexusRunner:
         logger.info("")
         logger.info(f"✓ Cycle {self.cycle_count} complete:")
         logger.info(f"  📊 TRADES: {tg_signals} new | Open={len(self.tg_trader.open_positions)} Closed={tg_stats['total_trades']} WR={tg_stats['win_rate']:.1f}% PnL=${tg_stats['total_pnl']:+.2f}")
+
+        # LOG: Open position health every cycle
+        if self.tg_trader.open_positions:
+            import requests as _req
+            for _sym, _pos in self.tg_trader.open_positions.items():
+                try:
+                    _r = _req.get(
+                        f"https://fapi.binance.com/fapi/v1/ticker/price"
+                        f"?symbol={_sym}", timeout=3)
+                    _curr = float(_r.json()['price'])
+                    _entry = float(_pos['entry_price'])
+                    _lev = float(_pos.get('leverage', 2))
+                    _size = float(_pos.get('size_usd', 50))
+                    _pnl_pct = (_curr-_entry)/_entry*100*_lev
+                    _pnl_usd = _size*(_pnl_pct/100)
+                    _hold = (datetime.now() -
+                            _pos['entry_time']).total_seconds()/3600
+                    _sl = float(_pos['stop_loss'])
+                    _sl_tag = "🔒" if _sl >= _entry*0.999 else "📍"
+                    logger.info(
+                        f"  ⏳ MONITOR | {_sym} | "
+                        f"Hold:{_hold:.1f}h | "
+                        f"PnL:${_pnl_usd:+.2f}({_pnl_pct:+.1f}%) | "
+                        f"SL:{_sl_tag}${_sl:.5f}")
+                except Exception as _e:
+                    logger.debug(f"Monitor error {_sym}: {_e}")
+
         logger.info("="*80)
         
         # Hourly summary via Telegram

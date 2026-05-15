@@ -255,6 +255,28 @@ class PaperTrader:
         
         self.closed_trades.append(trade)
         
+        # LOG: Exit details (critical for audit!)
+        outcome_emoji = "✅ WIN" if trade['outcome']=='WIN' else "❌ LOSS"
+        reason_emoji = {
+            'TP_HIT':'🎯','SL_HIT':'🛑','MAX_HOLD':'⏰'
+        }.get(reason,'📤')
+        
+        # SL integrity check
+        sl_gap = ""
+        if reason == 'SL_HIT':
+            sl = float(trade['stop_loss'])
+            gap_pct = (sl - exit_price) / sl * 100
+            if gap_pct > 0.1:
+                sl_gap = f" GAP:{gap_pct:.2f}%"
+        
+        logger.info(
+            f"🚪 EXIT | {symbol} | {reason_emoji}{reason} | "
+            f"{outcome_emoji} | "
+            f"PnL:${pnl_usd:+.2f}({pnl_pct:+.1f}%) | "
+            f"Hold:{duration:.1f}h | "
+            f"Entry:${entry:.5f} Exit:${exit_price:.5f}"
+            f"{sl_gap}")
+        
         # Send exit notification (enhanced)
         try:
             notifier = TelegramNotifier()
