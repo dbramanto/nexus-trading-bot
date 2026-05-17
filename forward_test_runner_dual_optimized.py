@@ -104,10 +104,14 @@ class NexusRunner:
         return df
     
     def refresh_top_gainers(self):
-        """Refresh top gainer list every 4 hours"""
+        """Refresh near-high list every cycle (15 min)
+        Near-high = dynamic! Must check frequently!
+        A coin can make new high anytime!
+        """
         should_refresh = (
             self.tg_last_refresh is None or
-            (datetime.now() - self.tg_last_refresh).total_seconds() / 3600 >= self.tg_config.refresh_interval_hours
+            (datetime.now() - self.tg_last_refresh
+             ).total_seconds() >= 900  # 15 min = every cycle!
         )
         
         if should_refresh:
