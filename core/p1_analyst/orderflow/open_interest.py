@@ -48,11 +48,12 @@ class OpenInterest(BaseAnalyst):
             current_oi = float(oi_data.get("openInterest", 0))
 
             # Fetch OI history untuk trend
-            oi_hist = self._binance_client.client.futures_open_interest_hist(
-                symbol=self._symbol,
-                period="15m",
-                limit=10
-            )
+            import requests as _req
+            _r = _req.get(
+                f"https://fapi.binance.com/fapi/data/openInterestHist"
+                f"?symbol={self._symbol}&period=15m&limit=10",
+                timeout=5)
+            oi_hist = _r.json() if _r.status_code == 200 else []
 
             if not oi_hist or len(oi_hist) < 2:
                 return self._neutral()

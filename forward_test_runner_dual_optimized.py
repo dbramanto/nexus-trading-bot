@@ -230,7 +230,13 @@ class NexusRunner:
                     logger.warning(f"H1 filter error {symbol}: {e}")
                     # On error: allow through (don't block on H1 failure)
                 
-                # 2. P1 analyze ONCE (expensive!)
+                # 2. Set context for orderflow modules
+                # (CVD, Funding, OI, Orderbook need client + symbol!)
+                for module in self.p1._modules:
+                    if hasattr(module, 'set_context'):
+                        module.set_context(symbol, self.client)
+
+                # 3. P1 analyze ONCE (expensive!)
                 p1_rep = self.p1.run_all(df, self.config, symbol=symbol)
                 # Inject symbol for P2 context
                 # 3. P2 score ONCE
