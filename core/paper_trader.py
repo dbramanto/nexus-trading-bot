@@ -228,32 +228,89 @@ class PaperTrader:
                         _ha_open_2 = (_ha_open_1 + _ha_close_1) / 2
                         
                         # HA bearish = close < open
+                        # HA bearish = close < open
                         _ha_bearish = _ha_close_2 < _ha_open_2
-                        
-                        # EXIT CONDITIONS (binary, independent):
-                        # Condition A: HA bearish + position losing
-                        _cond_a = _ha_bearish and pnl_pct < 0
-                        
-                        # Condition B: HA bearish + hold > 1h
-                        # (Momentum died, don't wait for SL)
-                        _cond_b = _ha_bearish and duration > 1.0
-                        
-                        if _cond_a or _cond_b:
-                            _reason = "A" if _cond_a else "B"
+
+                        # ENHANCED EXIT - DATA DRIVEN:
+                        # 5/9 momentum exits = FALSE (price continued!)
+                        # All false exits had thick body = correction!
+                        # Rule: exit only when body THIN + confirmation!
+
+                        # Last candle metrics
+                        _c2_o = float(_c2[1])
+                        _c2_h = float(_c2[2])
+                        _c2_l = float(_c2[3])
+                        _c2_c = float(_c2[4])
+                        _c2_v = float(_c2[5])
+                        _rng2 = _c2_h - _c2_l
+                        _bod2 = abs(_c2_c - _c2_o)
+                        _body_ratio = _bod2/_rng2 if _rng2>0 else 0
+                        _body_pct = _bod2/_c2_o*100 if _c2_o>0 else 0
+
+                        # Prev candle body
+                        _rng1 = float(_c1[2])-float(_c1[3])
+                        _bod1 = abs(float(_c1[4])-float(_c1[1]))
+                        _body_r1 = _bod1/_rng1 if _rng1>0 else 0
+
+                        # Spike dump: bearish candle >3% body
+                        _spike_dump = (_c2_c < _c2_o and _body_pct > 3.0)
+
+                        # Seller pressure: vol spike + bearish
+                        _avg_v = sum(float(k[5]) for k in _klines) / \
+                                 max(len(_klines), 1)
+                        _vol_spike = _c2_v > _avg_v * 2.0
+                        _seller_press = _c2_c < _c2_o and _vol_spike
+
+                        # EXIT CONDITIONS:
+                        # A: HA bearish + THIN body + losing
+                        _cond_a = (_ha_bearish and
+                                  _body_ratio < 0.35 and pnl_pct < 0)
+
+                        # B: HA bearish + hold>1h + THIN body
+                        _cond_b = (_ha_bearish and
+                                  duration > 1.0 and _body_ratio < 0.40)
+
+                        # C: Spike dump = EXIT always!
+                        _cond_c = _spike_dump and _vol_spike
+
+                        # D: Seller pressure + losing
+                        _cond_d = (_ha_bearish and
+                                  _seller_press and pnl_pct < -2)
+
+                        # HOLD: thick body = correction not reversal!
+                        _hold_thick = _body_ratio >= 0.50 and not _spike_dump
+                        # HOLD: in profit = give more room!
+                        _hold_profit = (pnl_pct > 5.0 and
+                                       not _spike_dump and
+                                       not _seller_press)
+
+                        _should_exit = _cond_a or _cond_b or _cond_c or _cond_d
+                        # Hold overrides exit (except spike dump!)
+                        if (_hold_thick or _hold_profit) and not _cond_c:
+                            _should_exit = False
+
+                        if _should_exit:
+                            _rsns = []
+                            if _cond_a: _rsns.append('A:thin+loss')
+                            if _cond_b: _rsns.append('B:time+thin')
+                            if _cond_c: _rsns.append('C:spike_dump')
+                            if _cond_d: _rsns.append('D:seller')
                             logger.info(
                                 f"🔄 MOMENTUM EXIT | {symbol} | "
-                                f"HA=BEARISH | "
-                                f"Cond:{_reason} | "
+                                f"Body:{_body_ratio:.2f} | "
+                                f"Cond:{chr(124).join(_rsns)} | "
                                 f"PnL:{pnl_pct:+.1f}% | "
                                 f"Hold:{duration:.1f}h")
                             symbols_to_close.append(
-                                (symbol, current_price, "MOMENTUM_EXIT"))
+                                (symbol, current_price, 'MOMENTUM_EXIT'))
                         else:
-                            _ha_dir = "BEAR" if _ha_bearish else "BULL"
+                            _hd = 'BEAR' if _ha_bearish else 'BULL'
+                            _why = 'thick' if _hold_thick else \
+                                   'profit' if _hold_profit else 'no_cond'
                             logger.debug(
                                 f"💚 HOLD | {symbol} | "
-                                f"HA={_ha_dir} | "
-                                f"PnL:{pnl_pct:+.1f}%")
+                                f"HA={_hd} Body:{_body_ratio:.2f} | "
+                                f"Why:{_why} PnL:{pnl_pct:+.1f}%")
                 
                 except Exception as _e:
                     logger.debug(f"Health monitor error {symbol}: {_e}")
