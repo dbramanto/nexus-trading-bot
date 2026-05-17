@@ -114,8 +114,10 @@ class TopGainerScanner:
                         "mode": "NEAR_HIGH",
                     })
                 
-                # FALLBACK: Classic top gainers
-                elif change_pct >= fallback_min_change:
+                # FALLBACK: Top gainers with reasonable dist
+                # Max dist 10% = still has momentum!
+                # AIAUSDT 28.7% = REJECT even in fallback!
+                elif change_pct >= fallback_min_change and                      dist_from_high <= 10.0:
                     top_gainer_coins.append({
                         "symbol": symbol,
                         "change_24h": change_pct,
