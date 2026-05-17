@@ -330,13 +330,23 @@ class NexusRunner:
                         if _vol > 0 and _vol < 0.5:
                             _reject = f"Vol:{_vol:.2f}x < 0.5x (weak)"
                         
-                        # 🔴 FILTER 2: RSI <= 80
-                        elif _rsi > 80:
-                            _reject = f"RSI:{_rsi:.0f} > 80 (overbought)"
+                        # RSI filter REMOVED by data:
+                        # WIN RSI 72.5 vs LOSS RSI 70.2 = not decisive!
+                        # RSI>80 in crypto = STRONG MOMENTUM, not reversal!
+                        # Live test: RSI>80 coins = 62.5% continuation!
+                        # AIAUSDT RSI 88.6% = +59.8% 24h = trending!
+                        # = Keeping RSI filter blocks best entries!
+                        # elif _rsi > 80:  # REMOVED - not crypto-appropriate
+                        #     _reject = f"RSI:{_rsi:.0f} > 80 (overbought)" 
                         
-                        # 🔴 FILTER 3: HA not WEAK
-                        elif _ha_str == 'WEAK':
-                            _reject = f"HA:WEAK (momentum uncertain)"
+                        # HA WEAK filter REMOVED by data:
+                        # HA WEAK avg gain +16.9% vs STRONG +9.8%!
+                        # WEAK outperforms STRONG in top gainers!
+                        # Reason: Pump candles = small HA body = normal!
+                        # Top gainers = volatile = HA WEAK expected!
+                        # = Filter was blocking valid pump entries!
+                        # elif _ha_str == 'WEAK':  # REMOVED
+                        #     _reject = "HA:WEAK"  # not crypto-appropriate
                         
                         if _reject:
                             logger.info(
