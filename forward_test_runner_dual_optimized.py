@@ -437,6 +437,51 @@ class NexusRunner:
                                 f"Mom:{momentum} "
                                 f"Fresh:{fresh_h:.1f}h "
                                 f"Score:{score:.0f}")
+
+                            # M15 STRUCTURE LOG (data collection only!)
+                            try:
+                                _vols = df['volume'].tolist()
+                                _lows = df['low'].tolist()
+                                _bodies = []
+                                for _si in range(
+                                    max(0,len(df)-5), len(df)):
+                                    _o = df['open'].iloc[_si]
+                                    _c = df['close'].iloc[_si]
+                                    _h = df['high'].iloc[_si]
+                                    _l = df['low'].iloc[_si]
+                                    _rng = _h - _l
+                                    _b = abs(_c - _o)
+                                    _bodies.append(
+                                        _b/_rng if _rng>0 else 0)
+
+                                _b_trend = 'INC'                                     if len(_bodies)>=2 and                                     _bodies[-1] > _bodies[0]                                     else 'DEC'
+
+                                _avg_vol_prev = sum(
+                                    _vols[-10:-5])/5                                     if len(_vols)>=10 else 1
+                                _avg_vol_curr = sum(
+                                    _vols[-5:])/5                                     if len(_vols)>=5 else 1
+                                _v_trend = 'INC'                                     if _avg_vol_curr >                                     _avg_vol_prev else 'DEC'
+
+                                _sl = []
+                                for _si in range(2, len(_lows)-2):
+                                    if all(_lows[_si]<=_lows[_si-j]
+                                           for j in range(1,3)) and                                       all(_lows[_si]<=_lows[_si+j]
+                                           for j in range(1,3)):
+                                        _sl.append(_lows[_si])
+                                _hl = len(_sl)>=2 and                                       _sl[-1] > _sl[-2]
+
+                                _avg_b = sum(_bodies)/len(_bodies)                                         if _bodies else 0
+
+                                logger.info(
+                                    f"📊 M15_STRUCT | {symbol} |"
+                                    f" Body:{_b_trend}"
+                                    f" Vol:{_v_trend}"
+                                    f" HL:{_hl}"
+                                    f" AvgBody:{_avg_b:.2f}"
+                                    f" SwingLows:{len(_sl)}")
+                            except Exception as _me:
+                                logger.debug(
+                                    f"M15 struct error: {_me}")
                         
                         # ENTRY notification
                         sl_dist_pct = abs(current_price - sl) / current_price * 100
