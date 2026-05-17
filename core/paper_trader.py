@@ -81,6 +81,7 @@ class PaperTrader:
             f"Score: {trade['p2_score']:.1f}"
         )
         
+        self._save_to_csv()  # Save on open = survive restart!
         return trade
     
     def check_exits(self, current_prices: Dict[str, float], max_hold_hours: int = 4):
