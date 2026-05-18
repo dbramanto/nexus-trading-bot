@@ -32,3 +32,10 @@ logs/
 
 # Keep current trades CSV
 !data/paper_trades_top_gainers.csv
+
+# Archive folders
+archive/
+docs/archive/
+
+# Simulated data
+data/simulated_*.csv
