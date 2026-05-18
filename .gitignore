@@ -39,3 +39,7 @@ docs/archive/
 
 # Simulated data
 data/simulated_*.csv
+
+# All backup variations
+*.backup
+*.backup_*
