@@ -1,49 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+
 # Backup files
-*.backup
-*.backup_*
-*.bak_*
 *.bak
-*.pre_*
-*.before_*
+*.bak_*
+fwd_bak_*.py
+*.py.bak_*
 
-# Data files (runtime, not code)
-data/paper_trades_top_gainers.csv
-data/hourly_summary_backup.txt
-data/memory_trades_backup.txt
-data/nexus_state.json.backup_*
-data/paper_trades_top_gainers.csv.backup_*
-data/periodic_backups/
-data/ml/labeled_trades.csv.backup
+# Data files (large, not needed in repo)
+data/historical/
+data/archive/
+data/ml/
+data/backtest_*.csv
 
-# Log files
+# Logs
 logs/
 *.log
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
+# Environment
 .env
-venv/
+*.env
 
-# Scripts (local only)
-scripts/backup_trades.sh
-
-# Shadow logs (large, runtime)
-data/shadow_logs/
-
-# Docs (keep only in repo if needed)
-# docs/ ← Keep this tracked
-
-# Specific backup files
-forward_test_runner_dual_optimized.py.backup*
-forward_test_runner_dual_optimized.py.bak*
-forward_test_runner_dual_optimized.py.pre_*
-core/paper_trader.py.backup*
-core/p1_analyst/indicator_manager.py.backup*
-core/p2_supervisor/scoring_engine.py.backup*
-core/p3_manager/strategy_logic.py.backup*
-core/p4_auditor/daily_report.py.backup*
-config/settings.yaml.backup*
-config/strategy_config.py.backup*
-backtesting/outcome_tracker.py.backup*
+# Keep current trades CSV
+!data/paper_trades_top_gainers.csv
