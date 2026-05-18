@@ -123,20 +123,6 @@ class NexusRunner:
                 min_volume_usd=self.tg_config.min_volume_usd
             )
             self.tg_last_refresh = datetime.now()
-
-            # NEAR-HIGH GATE: skip if too few candidates!
-            # Data: 8 candidates = poor quality = losses!
-            # Need minimum 10 for good signal quality!
-            if len(self.tg_symbols) < 5:
-                logger.warning(
-                    f"⚠️ Only {len(self.tg_symbols)} candidates "
-                    f"= market too weak! Skip this cycle!")
-                self.tg_symbols = []  # No trades this cycle!
-            elif len(self.tg_symbols) < 8:
-                logger.warning(
-                    f"⚠️ Low candidates ({len(self.tg_symbols)}) "
-                    f"= cautious mode!")
-
             logger.info(f"✓ {len(self.tg_symbols)} top gainers found")
     
     def run_cycle(self):
@@ -323,9 +309,9 @@ class NexusRunner:
                     if symbol in self.tg_trader.open_positions:
                         continue
 
-                    # Max positions = 3 (data: max3 WR22% vs max5 WR20%!)
-                    if len(self.tg_trader.open_positions) >= 3:
-                        logger.info(f"⛔ Max 3 positions - skip {symbol}")
+                    # Max positions = 5
+                    if len(self.tg_trader.open_positions) >= 5:
+                        logger.info(f"⛔ Max 5 positions - skip {symbol}")
                         continue
 
 

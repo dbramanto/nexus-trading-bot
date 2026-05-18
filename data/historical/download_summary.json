@@ -1,0 +1,10 @@
+{
+  "download_date": "2026-04-30T12:38:00.335461",
+  "days": 30,
+  "interval": "15m",
+  "symbols_success": 14,
+  "symbols_failed": 0,
+  "total_candles": 40320,
+  "method": "Direct HTTP (requests)",
+  "failed": []
+}
