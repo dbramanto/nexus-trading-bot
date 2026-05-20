@@ -176,6 +176,8 @@ class NexusRunner:
         
         # Top Gainers: Top gainers
         if self.tg_trader.open_positions:
+            # Build current_prices from SCANNER
+            # (kline close = may be stale!)
             current_prices = {}
             for sym in self.tg_trader.open_positions.keys():
                 try:
@@ -187,6 +189,35 @@ class NexusRunner:
             # Run exits - capture closed symbols for re-entry block
             closed_before = set(t['symbol'] 
                 for t in self.tg_trader.closed_trades)
+
+            # CRITICAL FIX: Fetch REAL-TIME prices
+            # for open positions before SL/TP check!
+            # kline[-1][4] = stale (up to 15min old!)
+            # Real-time = prevent SL miss!
+            try:
+                import requests as _rt_req
+                _open_syms = list(
+                    self.tg_trader.open_positions.keys())
+                if _open_syms:
+                    _rt_r = _rt_req.get(
+                        'https://fapi.binance.com/fapi/v1/ticker/price',
+                        timeout=5)
+                    _rt_prices = {
+                        t['symbol']: float(t['price'])
+                        for t in _rt_r.json()
+                        if t['symbol'] in _open_syms
+                    }
+                    # Override with real-time!
+                    current_prices.update(_rt_prices)
+                    logger.debug(
+                        f'📡 RT prices fetched for '
+                        f'{len(_rt_prices)} positions')
+            except Exception as _rt_e:
+                logger.warning(
+                    f'⚠️ RT price fetch failed: {_rt_e}')
+                # Fallback: kline price
+                # = Better than nothing!
+
             self.tg_trader.check_exits(current_prices, max_hold_hours=48)
             closed_after = set(t['symbol'] 
                 for t in self.tg_trader.closed_trades)
