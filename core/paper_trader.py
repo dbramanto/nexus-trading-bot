@@ -117,17 +117,87 @@ class PaperTrader:
             else:
                 current_price = current_prices[symbol]
             
-            # Check SL
+            # Check SL/TP
+            # FIX: Use candle HIGH/LOW
+            # = Capture intracandle moves!
+            # Single price = miss spike!
+
+            # Fetch last candle H/L for
+            # intracandle SL/TP detection
+            _candle_high = current_price
+            _candle_low = current_price
+            try:
+                import requests as _cr
+                _ck = _cr.get(
+                    f'https://fapi.binance.com'
+                    f'/fapi/v1/klines'
+                    f'?symbol={symbol}'
+                    f'&interval=1m&limit=2',
+                    timeout=3).json()
+                if _ck and len(_ck) >= 1:
+                    # Use last 2 candles
+                    # = Cover recent moves!
+                    _candle_high = max(
+                        float(_ck[-1][2]),
+                        float(_ck[-2][2])
+                        if len(_ck)>=2
+                        else float(_ck[-1][2]))
+                    _candle_low = min(
+                        float(_ck[-1][3]),
+                        float(_ck[-2][3])
+                        if len(_ck)>=2
+                        else float(_ck[-1][3]))
+            except Exception as _ce:
+                pass  # Fallback = current!
+
+            # LONG: SL=low<sl | TP=high>=tp
             if trade['side'] == 'LONG':
-                if current_price <= trade['stop_loss']:
-                    symbols_to_close.append((symbol, current_price, 'SL_HIT'))
-                elif current_price >= trade['take_profit']:
-                    symbols_to_close.append((symbol, current_price, 'TP_HIT'))
+                if _candle_low <= \
+                   trade['stop_loss']:
+                    # Use actual SL price!
+                    _exit_price = min(
+                        current_price,
+                        trade['stop_loss'])
+                    symbols_to_close.append(
+                        (symbol, _exit_price,
+                         'SL_HIT'))
+                    logger.debug(
+                        f'🎯 SL detected via '
+                        f'candle low: '
+                        f'{_candle_low:.5f} '
+                        f'< {trade["stop_loss"]:.5f}')
+                elif _candle_high >= \
+                     trade['take_profit']:
+                    # Use TP price!
+                    _exit_price = max(
+                        current_price,
+                        trade['take_profit'])
+                    symbols_to_close.append(
+                        (symbol, _exit_price,
+                         'TP_HIT'))
+                    logger.debug(
+                        f'🎯 TP detected via '
+                        f'candle high: '
+                        f'{_candle_high:.5f} '
+                        f'>= {trade["take_profit"]:.5f}')
             else:  # SHORT
-                if current_price >= trade['stop_loss']:
-                    symbols_to_close.append((symbol, current_price, 'SL_HIT'))
-                elif current_price <= trade['take_profit']:
-                    symbols_to_close.append((symbol, current_price, 'TP_HIT'))
+                if _candle_high >= \
+                   trade['stop_loss']:
+                    _exit_price = max(
+                        current_price,
+                        trade['stop_loss'])
+                    symbols_to_close.append(
+                        (symbol, _exit_price,
+                         'SL_HIT'))
+                elif _candle_low <= \
+                     trade['take_profit']:
+                    _exit_price = min(
+                        current_price,
+                        trade['take_profit'])
+                    symbols_to_close.append(
+                        (symbol, _exit_price,
+                         'TP_HIT'))
+
             
             # Check max hold time (CONDITIONAL)
             # Handle both datetime and pd.Timestamp
