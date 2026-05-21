@@ -332,9 +332,13 @@ class PaperTrader:
                         _seller_press = _c2_c < _c2_o and _vol_spike
 
                         # EXIT CONDITIONS:
-                        # A: HA bearish + THIN body + losing
+                        # A: HA bearish + THIN body + losing + min hold 15min
+                        # DATA: 28 trades <30min = WR 0%! Add min hold!
+                        # Exception: Cond C (spike) still exits immediately!
                         _cond_a = (_ha_bearish and
-                                  _body_ratio < 0.35 and pnl_pct < 0)
+                                  _body_ratio < 0.35 and
+                                  pnl_pct < 0 and
+                                  duration > 0.25)  # Min 15 menit!
 
                         # B: HA bearish + hold>1h + THIN body
                         _cond_b = (_ha_bearish and
