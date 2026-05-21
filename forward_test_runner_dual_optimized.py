@@ -412,11 +412,15 @@ class NexusRunner:
                         
                         # Calculate SL/TP
                         # Define leverage before SL/TP calculation!
-                        leverage = 3 if score >= 70 else (2 if score >= 65 else 1)
+                        # FLAT LEVERAGE - DATA DRIVEN!
+                        # Adaptive leverage = BACKFIRE!
+                        # Score 75-79 WR 0% + 3x lev = disaster!
+                        # SWARMSUSDT proof: -$38 in 15min!
+                        leverage = 2  # Flat 2x always!
 
                         sl_pct = self.tg_config.stop_loss_pct / 100
                         tp_pct = self.tg_config.take_profit_pct / 100
-                        
+
                         if action == 'LONG':
                             sl = current_price * (1 - sl_pct / leverage)
                             tp = current_price * (1 + tp_pct / leverage)
@@ -425,7 +429,7 @@ class NexusRunner:
                             sl = current_price * (1 + sl_pct / leverage)
                             tp = current_price * (1 - tp_pct / leverage)
                             bias = 'SHORT'
-                        
+
                         # Open paper position
                         signal = {
                             'symbol': symbol,
@@ -433,18 +437,15 @@ class NexusRunner:
                             'current_price': current_price,
                             'sl_price': sl,
                             'tp_price': tp,
-                            # === ADAPTIVE POSITION SIZING ===
-                            # Conservative: 5% of balance, inverse leverage
+                            # FLAT POSITION SIZING
+                            # Data: adaptive = backfire!
+                            # Score high + big size = big loss!
                             'current_balance': self.tg_trader.balance,
                             'target_position_pct': 0.05,
                             'target_position': self.tg_trader.balance * 0.05,
-                            'adaptive_leverage': 3 if score >= 70 else (2 if score >= 65 else 1),
-                            'position_size': (
-                                self.tg_trader.balance * 0.10
-                                if score >= 70
-                                else self.tg_trader.balance * 0.05
-                            ),
-                            'leverage': 3 if score >= 70 else (2 if score >= 65 else 1),
+                            'adaptive_leverage': 2,
+                            'position_size': self.tg_trader.balance * 0.05,
+                            'leverage': 2,  # Flat!
                             'p1_snapshot': p1_rep.get('modules',
                                 p1_rep if isinstance(p1_rep, dict)
                                 else {}),
