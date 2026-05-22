@@ -76,6 +76,14 @@ class StrategyLogic:
         if score < threshold:
             return self._wait(f"Score {score} below threshold {threshold}", score, grade, threshold)
 
+        # DATA: Score 75-79 = WR 7.7% | -$109 (13 trades)!
+        # Exhaustion zone - coin sudah pump = entry terlambat!
+        if 75 <= score <= 79:
+            return self._wait(
+                f'Score {score:.0f} danger zone 75-79 WR=7.7pct -$109 from 13 trades',
+                score, grade, threshold)
+
+
         # Fix 1: Block trade di RANGING regime
         regime = context_package.get("regime", "UNKNOWN")
 #         if regime == "RANGING":
