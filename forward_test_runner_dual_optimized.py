@@ -172,6 +172,41 @@ class NexusRunner:
         
         # Check exits for BOTH traders
         # Stable: Stable symbols
+        # SESSION FILTER: Block Asia 04-09 WIB
+        # DATA: 30 trades | WR 10% | -$110!
+        # Thin liquidity = pump & dump!
+        _now_h = datetime.now().hour
+        if 4 <= _now_h < 10:
+            logger.info(
+                f'⏸️ ASIA SESSION '
+                f'({_now_h}:xx WIB) - '
+                f'Skip new entries! '
+                f'Historical: WR 10% | -$110')
+            # Still check exits for open positions!
+            if self.tg_trader.open_positions:
+                try:
+                    import requests as _aq
+                    _ap = {}
+                    for _s in list(
+                        self.tg_trader
+                        .open_positions.keys()):
+                        try:
+                            _ar = _aq.get(
+                                f'https://fapi.binance.com'
+                                f'/fapi/v1/ticker/price'
+                                f'?symbol={_s}',
+                                timeout=5)
+                            _ap[_s] = float(
+                                _ar.json()['price'])
+                        except:
+                            pass
+                    self.tg_trader.check_exits(
+                        _ap, max_hold_hours=48)
+                except Exception as _ae:
+                    logger.debug(
+                        f'Asia exit check error: {_ae}')
+            return  # Skip entry logic!
+
         # Stable exit check disabled
         
         # Top Gainers: Top gainers

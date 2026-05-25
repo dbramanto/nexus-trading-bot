@@ -340,9 +340,13 @@ class PaperTrader:
                                   pnl_pct < 0 and
                                   duration > 0.25)  # Min 15 menit!
 
-                        # B: HA bearish + hold>1h + THIN body
+                        # B: HA bearish + hold>2h + VERY THIN body
+                        # DATA: Cond B 78% false exit!
+                        # = Exit saat trade masih profit!
+                        # FIX: raise hold 1h->2h, body 0.40->0.30
+                        # ME >2h = WR 56.2% (jauh lebih baik!)
                         _cond_b = (_ha_bearish and
-                                  duration > 1.0 and _body_ratio < 0.40)
+                                  duration > 2.0 and _body_ratio < 0.30)
 
                         # C: Spike dump = EXIT always!
                         _cond_c = _spike_dump and _vol_spike
