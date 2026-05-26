@@ -355,7 +355,10 @@ class PaperTrader:
                                   _seller_press and pnl_pct < -2)
 
                         # HOLD: thick body = correction not reversal!
-                        _hold_thick = _body_ratio >= 0.50 and not _spike_dump
+                        # DATA: hold >4h WR 77.8%! Encourage holding!
+                        # Gap fix: body 0.35-0.49 was ambiguous!
+                        # Now: body >= 0.35 = correction = HOLD!
+                        _hold_thick = _body_ratio >= 0.35 and not _spike_dump
                         # HOLD: in profit = give more room!
                         _hold_profit = (pnl_pct > 5.0 and
                                        not _spike_dump and

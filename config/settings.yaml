@@ -1,14 +1,12 @@
-trading:
-  mode: paper
-  leverage: 2
-  position_size_pct: 5.0
-  max_positions: 3
-  max_hold_hours: 48
-
 scoring:
   premium: 80
-  valid: 68
+  valid: 65
   weak: 35
-
 strategy:
   scanner_interval_hours: 0.25
+trading:
+  leverage: 2
+  max_hold_hours: 48
+  max_positions: 3
+  mode: paper
+  position_size_pct: 5.0
