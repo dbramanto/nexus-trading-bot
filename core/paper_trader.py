@@ -340,13 +340,12 @@ class PaperTrader:
                                   pnl_pct < 0 and
                                   duration > 0.25)  # Min 15 menit!
 
-                        # B: HA bearish + hold>2h + VERY THIN body
-                        # DATA: Cond B 78% false exit!
-                        # = Exit saat trade masih profit!
-                        # FIX: raise hold 1h->2h, body 0.40->0.30
-                        # ME >2h = WR 56.2% (jauh lebih baik!)
-                        _cond_b = (_ha_bearish and
-                                  duration > 2.0 and _body_ratio < 0.30)
+                        # B: DISABLED!
+                        # DATA: 85% false exits!
+                        # RIFUSDT +3.6%, DEXEUSDT +4.5%
+                        # TONUSDT +3.2% = exit saat profit!
+                        # SL handles downside = B not needed!
+                        _cond_b = False  # DISABLED
 
                         # C: Spike dump = EXIT always!
                         _cond_c = _spike_dump and _vol_spike
