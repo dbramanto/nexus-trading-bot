@@ -43,3 +43,21 @@ data/simulated_*.csv
 # All backup variations
 *.backup
 *.backup_*
+
+# Legacy runners
+forward_test_runner_dual.py
+
+# Backtesting (not active)
+backtesting/
+backtest_p2_comparison*.py
+run_single_backtest.py
+
+# Analysis scripts (not active)
+add_volume_gate.py
+remove_volume_gate.py
+analyze_*.py
+audit_nexus.py
+optimize_*.py
+simulate_*.py
+scripts/analyze_*.py
+scripts/download_*.py
