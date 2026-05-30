@@ -502,7 +502,14 @@ class NexusRunner:
                             vol = basic.get('volume_ratio', 0)
                             ha_dir = ha.get('ha_direction','?')
                             ha_str = ha.get('ha_strength','?')
+                            ha_trend_count = ha.get('trend_count', 0)
+                            ha_consistent = ha.get('consistent', False)
+                            ha_body_ratio = ha.get('ha_body_ratio', 0)
                             momentum = mom.get('momentum','?')
+                            mom_strength = mom.get('momentum_strength', 0)
+                            fast_ret = mom.get('fast_return_pct', 0)
+                            slow_ret = mom.get('slow_return_pct', 0)
+                            upper_wick = mom.get('upper_wick_pct', 0)
                             zone = pd_zone.get('price_zone','?')
                             fresh_h = (
                                 datetime.now() - 
@@ -514,8 +521,15 @@ class NexusRunner:
                                 f"RSI:{rsi:.0f} "
                                 f"Vol:{vol:.2f}x "
                                 f"HA:{ha_dir}/{ha_str} "
+                                f"HA_COUNT:{ha_trend_count} "
+                                f"HA_BODY:{ha_body_ratio:.2f} "
+                                f"HA_CONSIST:{'Y' if ha_consistent else 'N'} "
                                 f"Zone:{zone} "
                                 f"Mom:{momentum} "
+                                f"Mom_STR:{mom_strength:.1f} "
+                                f"Fast_R:{fast_ret:+.4f} "
+                                f"Slow_R:{slow_ret:+.4f} "
+                                f"Wick_U:{upper_wick:.1f} "
                                 f"Fresh:{fresh_h:.1f}h "
                                 f"Score:{score:.0f}")
 
