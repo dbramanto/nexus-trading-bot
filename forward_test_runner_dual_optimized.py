@@ -172,6 +172,135 @@ class NexusRunner:
         
         # Check exits for BOTH traders
         # Stable: Stable symbols
+        # REGIME FILTER: Skip BEAR market!
+        # DATA: BEAR 86 trades WR 10.5% -$174!
+        # GOOD: 144 trades WR 30.6% +$52!
+        # Formula: BTC×0.5 + Breadth×1.5 + NH×1.0
+        # Bear cutoff: score <= -1
+        try:
+            import requests as _rq
+            # Get market data
+            _tk = _rq.get(
+                'https://fapi.binance.com'
+                '/fapi/v1/ticker/24hr',
+                timeout=5).json()
+            _tickers = [t for t in _tk
+                       if t['symbol'].endswith('USDT')]
+
+            # Breadth score (weight 1.5)
+            _up = len([t for t in _tickers
+                      if float(t['priceChangePercent'])>0])
+            _breadth = _up/len(_tickers)*100
+            if _breadth > 65: _br_sc = 3*1.5
+            elif _breadth > 55: _br_sc = 2*1.5
+            elif _breadth > 45: _br_sc = 0
+            elif _breadth > 35: _br_sc = -2*1.5
+            else: _br_sc = -3*1.5
+
+            # Near-high score (weight 1.0)
+            _nh = [t for t in _tickers
+                   if float(t['priceChangePercent'])>5
+                   and float(t['quoteVolume'])>1000000
+                   and float(t['highPrice'])>0
+                   and (float(t['highPrice'])-
+                        float(t['lastPrice']))/
+                   float(t['highPrice'])*100<3]
+            _nh_cnt = len(_nh)
+            if _nh_cnt > 30: _nh_sc = 2.0
+            elif _nh_cnt > 15: _nh_sc = 1.0
+            elif _nh_cnt > 5: _nh_sc = 0
+            else: _nh_sc = -1.0
+
+            # BTC score (weight 0.5)
+            _btc_kl = _rq.get(
+                'https://fapi.binance.com'
+                '/fapi/v1/klines'
+                '?symbol=BTCUSDT'
+                '&interval=1d&limit=22',
+                timeout=5).json()
+            _btc_cls = [float(k[4])
+                       for k in _btc_kl]
+            _btc_now = _btc_cls[-1]
+            _chg_7d = (_btc_now-_btc_cls[-8])/                      _btc_cls[-8]*100
+            _ma20 = sum(_btc_cls[-20:])/20
+
+            if _chg_7d > 5: _btc_sc = 3*0.5
+            elif _chg_7d > 2: _btc_sc = 2*0.5
+            elif _chg_7d > -2: _btc_sc = 0
+            elif _chg_7d > -5: _btc_sc = -2*0.5
+            else: _btc_sc = -3*0.5
+
+            if _btc_now > _ma20: _btc_sc += 1*0.5
+            else: _btc_sc -= 1*0.5
+
+            # ALT vs BTC bonus
+            _btc_chg = float(next(
+                t['priceChangePercent']
+                for t in _tickers
+                if t['symbol']=='BTCUSDT'))
+            _alt_chg = sum(
+                float(t['priceChangePercent'])
+                for t in _tickers
+                if t['symbol']!='BTCUSDT'
+            )/max(1,len(_tickers)-1)
+            _alt_bonus = 1.0                 if _alt_chg-_btc_chg > 2                 else 0
+
+            # Total regime score
+            _regime_score = (_btc_sc +
+                            _br_sc +
+                            _nh_sc +
+                            _alt_bonus)
+
+            # Classify
+            if _regime_score >= 5:
+                _regime = 'BULL'
+            elif _regime_score >= 0:
+                _regime = 'NEUTRAL'
+            else:
+                _regime = 'BEAR'
+
+            logger.info(
+                f"📊 REGIME | "
+                f"Score:{_regime_score:+.1f} "
+                f"BTC:{_btc_sc:+.1f} "
+                f"Breadth:{_br_sc:+.1f} "
+                f"({_breadth:.0f}%) "
+                f"NH:{_nh_sc:+.1f} "
+                f"({_nh_cnt}) "
+                f"AltBonus:{_alt_bonus:.0f} "
+                f"= {_regime}")
+
+            if _regime == 'BEAR':
+                logger.info(
+                    f"⛔ BEAR REGIME "
+                    f"(score {_regime_score:+.1f}) "
+                    f"- Skip new entries! "
+                    f"DATA: WR 10.5% -$174 historical!")
+                # Exit check still runs!
+                if self.tg_trader.open_positions:
+                    _bear_p = {}
+                    for _s in list(
+                        self.tg_trader
+                        .open_positions.keys()):
+                        try:
+                            _br = _rq.get(
+                                f'https://fapi.binance.com'
+                                f'/fapi/v1/ticker/price'
+                                f'?symbol={_s}',
+                                timeout=5)
+                            _bear_p[_s] = float(
+                                _br.json()['price'])
+                        except:
+                            pass
+                    self.tg_trader.check_exits(
+                        _bear_p, max_hold_hours=48)
+                return  # Skip entries!
+
+        except Exception as _re:
+            logger.debug(
+                f"Regime check error: {_re}"
+                f" - continuing normally")
+
         # SESSION FILTER: Block Asia 04-09 WIB
         # DATA: 30 trades | WR 10% | -$110!
         # Thin liquidity = pump & dump!
