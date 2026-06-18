@@ -921,6 +921,100 @@ class NexusRunner:
         self.telegram.send(msg)
         logger.info("📊 Hourly report sent")
 
+    def _check_profit_lock(self):
+        """
+        Background monitor: check open positions every 5 min.
+        If price >= +5% PnL trigger, lock SL to +4% PnL.
+        ONLY checks positions NOT YET locked (SL < entry)!
+        Once locked, position waits for TP/SL in main cycle.
+        DATA: 16/23 trades reaching 5%+ eventually LOST!
+        = Lock early = save from reversal!
+        """
+        try:
+            open_pos = self.tg_trader.open_positions
+            if not open_pos:
+                return  # No open positions = nothing to do!
+
+            import requests as _req
+
+            locked_count = 0
+            skipped_count = 0
+
+            for symbol, trade in list(open_pos.items()):
+                entry_p = trade.get('entry_price', 0)
+                current_sl = trade.get('stop_loss', 0)
+                leverage = trade.get('leverage', 2)
+                side = trade.get('side', 'LONG')
+
+                # SKIP if already locked!
+                # (SL >= entry = already protected)
+                if current_sl >= entry_p:
+                    skipped_count += 1
+                    continue
+
+                # Get current price
+                try:
+                    r = _req.get(
+                        f'https://fapi.binance.com'
+                        f'/fapi/v1/ticker/price'
+                        f'?symbol={symbol}',
+                        timeout=5)
+                    curr_price = float(
+                        r.json()['price'])
+                except Exception:
+                    continue
+
+                # Calculate current PnL %
+                if side == 'LONG':
+                    pnl_pct = (
+                        (curr_price - entry_p) /
+                        entry_p * 100 * leverage)
+                else:
+                    pnl_pct = (
+                        (entry_p - curr_price) /
+                        entry_p * 100 * leverage)
+
+                # TRIGGER: pnl >= 5% → lock to 4%!
+                trigger_pct = 5.0
+                lock_pct = 4.0
+
+                if pnl_pct >= trigger_pct:
+                    # Calculate new SL at +4% PnL
+                    if side == 'LONG':
+                        price_move = (
+                            lock_pct / 100 / leverage)
+                        new_sl = entry_p * (
+                            1 + price_move)
+                    else:
+                        price_move = (
+                            lock_pct / 100 / leverage)
+                        new_sl = entry_p * (
+                            1 - price_move)
+
+                    # Only move SL if it's higher
+                    # than current SL!
+                    if new_sl > current_sl and                        new_sl < curr_price:
+                        trade['stop_loss'] = new_sl
+                        locked_count += 1
+                        logger.info(
+                            f"🔒 PROFIT LOCK | "
+                            f"{symbol} | "
+                            f"PnL:{pnl_pct:+.1f}% "
+                            f"≥ {trigger_pct}% trigger | "
+                            f"SL → ${new_sl:.6f} "
+                            f"(+{lock_pct}% lock) | "
+                            f"TP unchanged!")
+
+            if locked_count > 0:
+                logger.info(
+                    f"🔒 Profit lock check: "
+                    f"{locked_count} locked, "
+                    f"{skipped_count} already safe")
+
+        except Exception as e:
+            logger.debug(
+                f"Profit lock monitor error: {e}")
+
     def run(self):
         """Main loop"""
         logger.info("🚀 Starting NEXUS NEXUS (OPTIMIZED)...")
@@ -945,22 +1039,34 @@ class NexusRunner:
                     self.last_daily_check = current_date
                     self.send_daily_report()
 
-                # Smart sleep: until next 15-min boundary
-                # Ensures hourly fires EXACTLY on the hour!
-                # e.g. 20:59 → sleep 1min → 21:00 → hourly! ✅
+                # Smart sleep with 5-min profit lock monitor
+                # Instead of sleeping full 15 min at once,
+                # wake every 5 min to check open positions!
+                # DATA: 16/23 trades reaching 5%+ eventually
+                # LOST → lock SL to 4% on trigger!
                 minutes = now.minute
                 seconds = now.second
                 next_mark = ((minutes // 15) + 1) * 15
-                sleep_secs = max(
+                total_sleep = max(
                     30,
                     min((next_mark - minutes)*60 - seconds, 900)
                 )
-                # Display label: :60 means :00 next hour
                 display = next_mark if next_mark < 60 else 0
                 logger.info(
-                    f"⏳ Sleeping {sleep_secs}s "
+                    f"⏳ Sleeping {total_sleep}s "
                     f"(next cycle at :{display:02d})")
-                time.sleep(sleep_secs)
+
+                # Split sleep into 5-min chunks
+                # Monitor open positions between sleeps!
+                elapsed = 0
+                while elapsed < total_sleep:
+                    chunk = min(300, total_sleep - elapsed)
+                    time.sleep(chunk)
+                    elapsed += chunk
+
+                    # If still time left = check positions!
+                    if elapsed < total_sleep:
+                        self._check_profit_lock()
 
         
         except KeyboardInterrupt:
