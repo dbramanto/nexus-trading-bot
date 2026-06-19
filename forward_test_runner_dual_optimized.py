@@ -8,7 +8,7 @@ sys.path.insert(0, '/home/nexus/nexus_bot')
 
 import time
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 
 from config.strategy_config import NexusConfig, TopGainerMode
@@ -66,7 +66,12 @@ class NexusRunner:
         
         self.cycle_count = 0
         self.last_hourly_check = datetime.now().replace(minute=0, second=0, microsecond=0)
-        self.last_daily_check = datetime.now().date()
+        # FIX: Init to YESTERDAY, not today!
+        # Prevents missed daily report if
+        # service restarts before 07:00 WIB!
+        self.last_daily_check = (
+            datetime.now() -
+            timedelta(days=1)).date()
         
         logger.info("="*80)
         logger.info("NEXUS NEXUS v2.0 INITIALIZED (OPTIMIZED)")
