@@ -926,6 +926,81 @@ class NexusRunner:
         self.telegram.send(msg)
         logger.info("📊 Hourly report sent")
 
+    def _track_missed_upside(self):
+        """
+        PASSIVE LOGGING: track max price reached
+        AFTER profit lock trigger, for up to 8 hours
+        or until price drops >=10% from peak.
+        ZERO impact on trading logic - pure observation!
+        DATA PURPOSE: validate if trailing SL/TP would
+        capture more upside than current static lock.
+        """
+        try:
+            if not hasattr(self, '_lock_tracker'):
+                return
+            if not self._lock_tracker:
+                return
+
+            import requests as _req
+            now = datetime.now()
+            to_remove = []
+
+            for symbol, info in list(self._lock_tracker.items()):
+                elapsed_h = (
+                    now - info['lock_time']
+                ).total_seconds() / 3600
+
+                try:
+                    r = _req.get(
+                        f'https://fapi.binance.com'
+                        f'/fapi/v1/ticker/price'
+                        f'?symbol={symbol}',
+                        timeout=5)
+                    curr_price = float(r.json()['price'])
+                except Exception:
+                    continue
+
+                if curr_price > info['peak_price']:
+                    info['peak_price'] = curr_price
+
+                info['checks_done'] += 1
+
+                entry_p = info['entry_price']
+                lock_p = info['lock_price']
+                peak_p = info['peak_price']
+
+                peak_gain_pct = (
+                    (peak_p - entry_p) / entry_p * 100)
+                lock_gain_pct = (
+                    (lock_p - entry_p) / entry_p * 100)
+                drop_from_peak_pct = (
+                    (peak_p - curr_price) / peak_p * 100
+                    if peak_p > 0 else 0)
+
+                # Stop conditions: 8h elapsed OR
+                # dropped >=10% from peak (reversal confirmed)
+                should_stop = (
+                    elapsed_h >= 8.0 or
+                    drop_from_peak_pct >= 10.0)
+
+                if should_stop:
+                    missed_pct = peak_gain_pct - lock_gain_pct
+                    logger.info(
+                        f"📊 MISSED_UPSIDE | {symbol} | "
+                        f"LockAt:{lock_gain_pct:+.2f}% | "
+                        f"PeakReached:{peak_gain_pct:+.2f}% | "
+                        f"Missed:{missed_pct:+.2f}% | "
+                        f"Elapsed:{elapsed_h:.1f}h | "
+                        f"StopReason:"
+                        f"{'TIME_8H' if elapsed_h>=8.0 else 'REVERSAL_10PCT'}")
+                    to_remove.append(symbol)
+
+            for sym in to_remove:
+                del self._lock_tracker[sym]
+
+        except Exception as e:
+            logger.debug(f"Missed upside tracker error: {e}")
+
     def _check_profit_lock(self):
         """
         Background monitor: check open positions every 5 min.
@@ -1010,6 +1085,18 @@ class NexusRunner:
                             f"(+{lock_pct}% lock) | "
                             f"TP unchanged!")
 
+                        # Register for missed-upside tracking
+                        # PASSIVE LOGGING ONLY - zero impact on trading!
+                        if not hasattr(self, '_lock_tracker'):
+                            self._lock_tracker = {}
+                        self._lock_tracker[symbol] = {
+                            'lock_time': datetime.now(),
+                            'entry_price': entry_p,
+                            'lock_price': new_sl,
+                            'peak_price': curr_price,
+                            'checks_done': 0,
+                        }
+
             if locked_count > 0:
                 logger.info(
                     f"🔒 Profit lock check: "
@@ -1072,6 +1159,7 @@ class NexusRunner:
                     # If still time left = check positions!
                     if elapsed < total_sleep:
                         self._check_profit_lock()
+                        self._track_missed_upside()
 
         
         except KeyboardInterrupt:
