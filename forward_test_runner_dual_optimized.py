@@ -66,12 +66,31 @@ class NexusRunner:
         
         self.cycle_count = 0
         self.last_hourly_check = datetime.now().replace(minute=0, second=0, microsecond=0)
-        # FIX: Init to YESTERDAY, not today!
-        # Prevents missed daily report if
-        # service restarts before 07:00 WIB!
-        self.last_daily_check = (
-            datetime.now() -
-            timedelta(days=1)).date()
+        # FIX v2: Use PERSISTENT FILE to track
+        # last daily report date, NOT just memory!
+        # Prevents BOTH:
+        #   a) Missed report (restart before 07:00)
+        #   b) Duplicate report (restart after 07:00,
+        #      report already sent today)
+        self._daily_check_file = 'data/.last_daily_check.txt'
+        try:
+            with open(self._daily_check_file, 'r') as f:
+                saved_date_str = f.read().strip()
+                from datetime import date as _date
+                y, m, d = map(int, saved_date_str.split('-'))
+                self.last_daily_check = _date(y, m, d)
+                logger.info(
+                    f"📅 Restored last_daily_check from file: "
+                    f"{self.last_daily_check}")
+        except (FileNotFoundError, ValueError):
+            # First run ever - init to yesterday so
+            # today's report still fires normally at 07:00
+            self.last_daily_check = (
+                datetime.now() -
+                timedelta(days=1)).date()
+            logger.info(
+                f"📅 No saved daily_check found, "
+                f"init to yesterday: {self.last_daily_check}")
         
         logger.info("="*80)
         logger.info("NEXUS NEXUS v2.0 INITIALIZED (OPTIMIZED)")
@@ -1129,6 +1148,12 @@ class NexusRunner:
                 current_date = now.date()
                 if current_date > self.last_daily_check and                    now.hour >= 7:
                     self.last_daily_check = current_date
+                    try:
+                        with open(self._daily_check_file, 'w') as f:
+                            f.write(str(current_date))
+                    except Exception as _e:
+                        logger.debug(
+                            f"Failed to persist daily_check: {_e}")
                     self.send_daily_report()
 
                 # Smart sleep with 5-min profit lock monitor
