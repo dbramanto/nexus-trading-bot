@@ -686,6 +686,20 @@ class NexusRunner:
                                 f"Fresh:{fresh_h:.1f}h "
                                 f"Score:{score:.0f}")
 
+                            # MOMENTUM CONTRADICTION LOG
+                            # (passive, data collection only!)
+                            # Flags when short-term momentum (Fast_R)
+                            # disagrees with longer-term momentum
+                            # (Slow_R) - potential "dead cat bounce"
+                            # signal. ZERO impact on entry/exit logic!
+                            if fast_ret > 0 and slow_ret < 0:
+                                logger.info(
+                                    f"⚠️ MOMENTUM_CONTRADICTION | "
+                                    f"{symbol} | "
+                                    f"Fast_R:{fast_ret:+.4f} "
+                                    f"Slow_R:{slow_ret:+.4f} | "
+                                    f"Score:{score:.0f}")
+
                             # M15 STRUCTURE LOG (data collection only!)
                             try:
                                 _vols = df['volume'].tolist()
