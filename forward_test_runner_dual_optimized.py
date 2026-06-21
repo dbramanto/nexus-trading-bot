@@ -981,8 +981,12 @@ class NexusRunner:
         capture more upside than current static lock.
         """
         try:
+            # Load from file if not yet in memory
+            # (consistent with _check_profit_lock's pattern,
+            #  but INDEPENDENT - don't rely on the other
+            #  function having run first!)
             if not hasattr(self, '_lock_tracker'):
-                return
+                self._lock_tracker = self._load_lock_tracker()
             if not self._lock_tracker:
                 return
 
@@ -1049,7 +1053,7 @@ class NexusRunner:
                 self._save_lock_tracker()
 
         except Exception as e:
-            logger.debug(f"Missed upside tracker error: {e}")
+            logger.warning(f"⚠️ Missed upside tracker error: {e}")
 
     def _check_profit_lock(self):
         """
