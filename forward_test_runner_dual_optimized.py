@@ -945,6 +945,32 @@ class NexusRunner:
         self.telegram.send(msg)
         logger.info("📊 Hourly report sent")
 
+    def _load_lock_tracker(self):
+        """Load lock tracker state from JSON file (survives restart!)"""
+        import json, os
+        path = 'data/.lock_tracker.json'
+        if os.path.exists(path):
+            try:
+                with open(path, 'r') as f:
+                    data = json.load(f)
+                logger.info(
+                    f"📂 Restored lock_tracker: "
+                    f"{len(data)} pending positions")
+                return data
+            except Exception as e:
+                logger.debug(f"Failed to load lock_tracker: {e}")
+        return {}
+
+    def _save_lock_tracker(self):
+        """Persist lock tracker state to JSON file!"""
+        import json
+        path = 'data/.lock_tracker.json'
+        try:
+            with open(path, 'w') as f:
+                json.dump(self._lock_tracker, f)
+        except Exception as e:
+            logger.debug(f"Failed to save lock_tracker: {e}")
+
     def _track_missed_upside(self):
         """
         PASSIVE LOGGING: track max price reached
@@ -965,8 +991,11 @@ class NexusRunner:
             to_remove = []
 
             for symbol, info in list(self._lock_tracker.items()):
+                # lock_time stored as ISO string (JSON-safe)!
+                lock_time_dt = datetime.fromisoformat(
+                    info['lock_time'])
                 elapsed_h = (
-                    now - info['lock_time']
+                    now - lock_time_dt
                 ).total_seconds() / 3600
 
                 try:
@@ -1014,8 +1043,10 @@ class NexusRunner:
                         f"{'TIME_8H' if elapsed_h>=8.0 else 'REVERSAL_10PCT'}")
                     to_remove.append(symbol)
 
-            for sym in to_remove:
-                del self._lock_tracker[sym]
+            if to_remove:
+                for sym in to_remove:
+                    del self._lock_tracker[sym]
+                self._save_lock_tracker()
 
         except Exception as e:
             logger.debug(f"Missed upside tracker error: {e}")
@@ -1106,15 +1137,17 @@ class NexusRunner:
 
                         # Register for missed-upside tracking
                         # PASSIVE LOGGING ONLY - zero impact on trading!
+                        # PERSISTENT via JSON file (survives restart!)
                         if not hasattr(self, '_lock_tracker'):
-                            self._lock_tracker = {}
+                            self._lock_tracker = self._load_lock_tracker()
                         self._lock_tracker[symbol] = {
-                            'lock_time': datetime.now(),
+                            'lock_time': datetime.now().isoformat(),
                             'entry_price': entry_p,
                             'lock_price': new_sl,
                             'peak_price': curr_price,
                             'checks_done': 0,
                         }
+                        self._save_lock_tracker()
 
             if locked_count > 0:
                 logger.info(
