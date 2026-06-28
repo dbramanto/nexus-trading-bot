@@ -7,6 +7,6 @@ strategy:
 trading:
   leverage: 2
   max_hold_hours: 48
-  max_positions: 4
+  max_positions: 3
   mode: paper
   position_size_pct: 5.0
